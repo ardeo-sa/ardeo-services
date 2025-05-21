@@ -3,15 +3,29 @@ Endpoints for managing calendar meetings, including regular and MDT meetings.
 """
 from fastapi import APIRouter
 
-from app.calendar.schemas import meeting as schemas
+from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from typing import List
+
+from app.calendar.schemas.meeting import (
+    MeetingCreate,
+    MeetingResponse,
+    MeetingNoteCreate,
+    MeetingNoteResponse,
+    MeetingDetail,
+    MeetingType
+)
 from app.calendar.services import meeting as services
-from app.core.dependencies import require_role
+from app.calendar.models.meeting import Meeting, SupportingFile
+from app.core.dependencies import get_db, get_current_user, require_role
+from app.users.models.user import User
 
 router = APIRouter()
 
-@router.post("/", response_model=schemas.MeetingResponse)
+@router.post("/", response_model=MeetingResponse)
 def create_meeting(
-    meeting: schemas.MeetingCreate,
+    meeting: MeetingCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -39,15 +53,15 @@ def create_meeting(
     return services.create_meeting(meeting, db)
 
 
-@router.get("/{meeting_id}", response_model=schemas.MeetingDetail)
-def get_meeting(meeting_id: int):
+@router.get("/{meeting_id}", response_model=MeetingDetail)
+def get_meeting(meeting_id: int, db: Session = Depends(get_db)):
     """
     Retrieve details of a specific meeting by ID.
     """
-    return services.get_meeting(meeting_id)
+    return services.get_meeting(meeting_id, db)
 
 
-@router.post("/{meeting_id}/patients", response_model=schemas.MeetingResponse)
+@router.post("/{meeting_id}/patients", response_model=MeetingResponse)
 def add_patient_to_meeting(
     meeting_id: int,
     patient_ids: List[int] = Body(...),
@@ -71,10 +85,10 @@ def add_patient_to_meeting(
     return services.add_patients_to_meeting(meeting_id, patient_ids, db)
 
 
-@router.post("/{meeting_id}/notes", response_model=schemas.MeetingNoteResponse)
+@router.post("/{meeting_id}/notes", response_model=MeetingNoteResponse)
 def add_note_to_meeting(
     meeting_id: int,
-    note: schemas.MeetingNoteCreate,
+    note: MeetingNoteCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
