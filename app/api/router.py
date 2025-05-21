@@ -1,8 +1,8 @@
-# Central API router
+"""
+Root API router that aggregates and includes all sub-routers from the app.
+"""
 from fastapi import APIRouter
+from app.calendar.api.router import router as calendar_router
 
 router = APIRouter()
-
-# Add feature routers here
-# from app.calendar.api import router as calendar_router
-# router.include_router(calendar_router, prefix="/calendar")
+router.include_router(calendar_router, prefix="/calendar", tags=["Calendar"])
