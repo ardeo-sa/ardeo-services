@@ -18,7 +18,9 @@ from app.calendar.schemas.meeting import (
 )
 from app.calendar.services import meeting as services
 from app.calendar.models.meeting import Meeting, SupportingFile
-from app.core.dependencies import get_db, get_current_user, require_role
+from app.core.dependencies import get_current_user, require_role
+from app.database.services import get_services_db
+
 from app.users.models.user import User
 
 router = APIRouter()
@@ -26,7 +28,7 @@ router = APIRouter()
 @router.post("/", response_model=MeetingResponse)
 def create_meeting(
     meeting: MeetingCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_services_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -54,7 +56,7 @@ def create_meeting(
 
 
 @router.get("/{meeting_id}", response_model=MeetingDetail)
-def get_meeting(meeting_id: int, db: Session = Depends(get_db)):
+def get_meeting(meeting_id: int, db: Session = Depends(get_services_db)):
     """
     Retrieve details of a specific meeting by ID.
     """
@@ -65,7 +67,7 @@ def get_meeting(meeting_id: int, db: Session = Depends(get_db)):
 def add_patient_to_meeting(
     meeting_id: int,
     patient_ids: List[int] = Body(...),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_services_db),
     current_user: User = Depends(require_role("coordinator")),
 ):
     """
@@ -89,7 +91,7 @@ def add_patient_to_meeting(
 def add_note_to_meeting(
     meeting_id: int,
     note: MeetingNoteCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_services_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -112,7 +114,7 @@ def add_note_to_meeting(
 @router.post("/{meeting_id}/lock")
 def lock_meeting(
     meeting_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_services_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -144,7 +146,7 @@ def lock_meeting(
 def download_supporting_file(
     meeting_id: int,
     file_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_services_db),
     current_user: User = Depends(get_current_user)
 ):
     """
