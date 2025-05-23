@@ -14,7 +14,7 @@ jobs:
       postgres:
         image: postgres:13
         env:
-          POSTGRES_DB: metrics_db
+          POSTGRES_DB: services_db
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_pass
         ports: ['5432:5432']
