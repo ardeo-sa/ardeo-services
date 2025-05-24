@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+SQLAlchemy
+psycopg2-binary
+pydantic
+pydantic-settings
+python-multipart
+python-dotenv
+typing-extensions
+pytest
+httpx
