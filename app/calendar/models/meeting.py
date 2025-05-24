@@ -4,7 +4,7 @@ participants, notes, and patients discussed in MDT.
 """
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
-from app.core.database import Base
+from app.database.services import Base
 
 class Meeting(Base):
     """

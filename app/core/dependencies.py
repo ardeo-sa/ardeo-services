@@ -1,8 +1,6 @@
-
 from fastapi import Request, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
 from app.users.models.user import User
 
 
@@ -22,23 +20,6 @@ def get_current_user(request: Request) -> User:
         raise HTTPException(status_code=401, detail="User not authenticated")
 
     return user
-
-
-def get_db() -> Session:
-    """
-    Provides a database session for dependency injection.
-
-    Yields:
-        Session: SQLAlchemy DB session.
-
-    Closes:
-        Ensures the session is closed after request lifecycle.
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def require_role(role: str):
@@ -64,4 +45,5 @@ def require_role(role: str):
     return role_checker
 
 
-__all__ = ["get_db", "get_current_user", "require_role"]
+__all__ = ["get_current_user", "require_role"]
+

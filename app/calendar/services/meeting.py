@@ -3,15 +3,16 @@ Business logic for meeting operations like creation, participant and subject add
 """
 from typing import List
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 from app.calendar.models.meeting import Meeting, MeetingNote, MeetingParticipant, MeetingPatient
 from app.calendar.schemas.meeting import MeetingCreate, MeetingNoteCreate, MeetingNoteType, MeetingType
 from app.users.models import User
 from app.patients.models import Patient
+from app.database.services import get_services_db
 from datetime import datetime
 
 
-def create_meeting(meeting_data: schemas.MeetingCreate, db: Session = next(get_db())):
+def create_meeting(meeting_data: MeetingCreate, db: Session = Depends(get_services_db)):
     """
     Create and persist a new meeting with participants and patients (if MDT).
 
