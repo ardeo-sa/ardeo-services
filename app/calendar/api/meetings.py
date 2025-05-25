@@ -1,12 +1,15 @@
 """
 Endpoints for managing calendar meetings, including regular and MDT meetings.
 """
-from fastapi import APIRouter
+from datetime import datetime
+from typing import Optional, List
+import os
+from uuid import uuid4
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from typing import List
 
 from app.calendar.schemas.meeting import (
     MeetingCreate,
@@ -22,6 +25,11 @@ from app.core.dependencies import get_current_user, require_role
 from app.database.services import get_services_db
 
 from app.users.models.user import User
+
+MAX_FILE_SIZE_MB = 10
+UPLOAD_DIR = "uploaded_files/meetings"
+
+Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
 router = APIRouter()
 
@@ -142,6 +150,68 @@ def lock_meeting(
     return {"detail": f"Meeting {meeting.id} locked."}
 
 
+@router.post("/{meeting_id}/files", response_model=dict)
+def upload_supporting_file(
+    meeting_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_services_db),
+    current_user=Depends(require_role("coordinator", "admin")),
+):
+    """
+    Upload a supporting file for an MDT meeting.
+    Only coordinators or admins are allowed to upload.
+    Validates file size (max 10MB) and stores it with metadata.
+    current_user (User): Authenticated user with allowed role.
+
+    Args:
+        meeting_id (int): Target meeting ID.
+        file (UploadFile): The uploaded file.
+        db (Session): Database session.
+
+    Returns:
+        dict: Confirmation and file metadata.
+    """
+    # Validate file size (read into memory buffer to check)
+    contents = file.file.read()
+    if len(contents) > MAX_FILE_SIZE_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
+
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    # Generate unique file path and save file
+    filename = f"{uuid4()}_{file.filename}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    # Create DB record
+    file_record = SupportingFile(
+        meeting_id=meeting_id,
+        name=file.filename,
+        path=filepath,
+        file_size=len(contents),
+        mime_type=file.content_type,
+        is_encrypted=False,
+        encryption_method=None,
+    )
+
+    db.add(file_record)
+    db.commit()
+    db.refresh(file_record)
+
+    return {
+        "file_id": file_record.id,
+        "filename": file_record.name,
+        "size_bytes": file_record.file_size,
+        "mime_type": file_record.mime_type,
+        "uploaded_by": current_user.id,
+        "uploaded_at": file_record.uploaded_at.isoformat()
+    }
+
+
 @router.get("/{meeting_id}/files/{file_id}", response_class=FileResponse)
 def download_supporting_file(
     meeting_id: int,
@@ -177,3 +247,34 @@ def download_supporting_file(
     return FileResponse(path=file.path, filename=file.name, media_type='application/octet-stream')
 
 
+@router.get("/", response_model=List[MeetingResponse])
+def list_meetings(
+    db: Session = Depends(get_services_db),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(10, le=100, description="Max number of records to return"),
+    search: Optional[str] = Query(None, description="Search term to filter by title or type"),
+    start_date: Optional[datetime] = Query(None, description="Start of date range"),
+    end_date: Optional[datetime] = Query(None, description="End of date range"),
+):
+    """
+    List meetings with optional pagination and search.
+
+    Args:
+        db (Session): DB session.
+        skip (int): Number of records to skip.
+        limit (int): Number of records to return.
+        search (str, optional): Filter string for meeting title or type.
+        start_date (datetime, optional): Filter meetings starting on or after this date.
+        end_date (datetime, optional): Filter meetings ending on or before this date.
+
+    Returns:
+        List[MeetingResponse]: A list of meetings.
+    """
+    return services.list_meetings(
+        db=db,
+        skip=skip,
+        limit=limit,
+        search=search,
+        start_date=start_date,
+        end_date=end_date
+    )
