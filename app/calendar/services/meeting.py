@@ -1,8 +1,7 @@
 """"
 Business logic for meeting operations like creation, participant and subject addition, and note management.
 """
-from typing import List, Optional
-from sqlalchemy import or_, and_
+from typing import List
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException
 from app.calendar.models.meeting import Meeting, MeetingNote, MeetingParticipant, MeetingPatient
@@ -121,44 +120,3 @@ def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: User, 
     db.commit()
     db.refresh(note)
     return note
-
-def list_meetings(
-        db: Session,
-        skip: int = 0,
-        limit: int = 10,
-        search: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
-):
-    """
-    Retrieve a list of meetings, optionally filtered by a search query.
-
-    Args:
-        db (Session): SQLAlchemy session.
-        skip (int): Offset for pagination.
-        limit (int): Max number of results.
-        search (Optional[str]): Filter by title or type.
-        start_date (Optional[datetime]): Filter start_time >= this.
-        end_date (Optional[datetime]): Filter end_time <= this.
-
-    Returns:
-        List[Meeting]: Meetings satisfying the conditions.
-    """
-    query = db.query(Meeting)
-
-    if search:
-        query = query.filter(
-            or_(
-                Meeting.title.ilike(f"%{search}%"),
-                Meeting.type.ilike(f"%{search}%")
-            )
-        )
-
-    if start_date:
-        query = query.filter(Meeting.start_time >= start_date)
-
-    if end_date:
-        query = query.filter(Meeting.end_time <= end_date)
-
-    return query.offset(skip).limit(limit).all()
-
