@@ -1,6 +1,5 @@
 from sqlalchemy import Enum as SQLAlchemyEnum
 from ..schemas.user import UserRole
-from sqlalchemy.orm import relationship
 
 class User(Base):
     """
@@ -12,5 +11,3 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
     role = Column(SQLAlchemyEnum(UserRole), default=UserRole.user, nullable=False)
-
-    calendar_tokens = relationship("CalendarOAuthToken", back_populates="user")
