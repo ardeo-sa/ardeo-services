@@ -1,0 +1,14 @@
+# Services Database
+SERVICES_DB_URI=postgresql://user:password@host:port/services_db
+
+# Google app credentials
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-secret
+GOOGLE_REDIRECT_URI=https://yourdomain.com/api/calendar/oauth/google/callback
+
+# Microsoft app credentials
+MS_CLIENT_ID=your-azure-app-id
+MS_CLIENT_SECRET=your-azure-app-secret
+MS_TENANT_ID=common  # or tenant UUID
+MS_REDIRECT_URI=https://yourdomain.com/api/calendar/oauth/microsoft/callback
+
