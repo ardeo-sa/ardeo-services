@@ -20,10 +20,11 @@ from app.calendar.schemas.meeting import (
     MeetingType
 )
 from app.calendar.services import meeting as services
-from app.calendar.models.meeting import Meeting, SupportingFile
+from app.calendar.models.meeting import Meeting, SupportingFile, MeetingNote
+from app.calendar.models.audit import MeetingAuditLog
 from app.core.dependencies import get_current_user, require_role
 from app.database.services import get_services_db
-
+from app.calendar.services.audit import log_meeting_action
 from app.users.models.user import User
 from app.calendar.schemas.meeting import MeetingNoteUpdate
 
@@ -117,6 +118,15 @@ def add_note_to_meeting(
     Returns:
         MeetingNoteResponse: The saved note entry.
     """
+    log_meeting_action(
+        db=db,
+        user=current_user,
+        meeting_id=meeting_id,
+        action="add_note",
+        object_type="note",
+        object_id=note.id,
+        metadata={"type": note.type}
+    )
     return services.add_meeting_note(meeting_id, note, current_user, db)
 
 
@@ -182,6 +192,13 @@ def lock_meeting(
 
     meeting.locked = True
     db.commit()
+    log_meeting_action(
+        db=db,
+        user=current_user,
+        meeting_id=meeting_id,
+        action="lock_meeting",
+        object_type="meeting"
+    )
     return {"detail": f"Meeting {meeting.id} locked."}
 
 
@@ -240,6 +257,16 @@ def upload_supporting_file(
     db.add(file_record)
     db.commit()
     db.refresh(file_record)
+
+    log_meeting_action(
+        db=db,
+        user=current_user,
+        meeting_id=meeting_id,
+        action="upload_file",
+        object_type="file",
+        object_id=file_record.id,
+        metadata={"filename": file.filename, "size": file_record.file_size}
+    )
 
     return {
         "file_id": file_record.id,
@@ -317,3 +344,33 @@ def list_meetings(
         start_date=start_date,
         end_date=end_date
     )
+
+@router.get("/{meeting_id}/audit", response_model=List[dict])
+def get_meeting_audit_log(
+    meeting_id: int,
+    db: Session = Depends(get_services_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retrieve audit logs for a meeting. Only coordinators/admins can view.
+    """
+    if current_user.role not in ("coordinator", "admin"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    logs = (
+        db.query(MeetingAuditLog)
+        .filter_by(meeting_id=meeting_id)
+        .order_by(MeetingAuditLog.timestamp.desc())
+        .all()
+    )
+    return [
+        {
+            "user_id": log.user_id,
+            "action": log.action,
+            "object_type": log.object_type,
+            "object_id": log.object_id,
+            "timestamp": log.timestamp.isoformat(),
+            "metadata": log.metadata,
+        }
+        for log in logs
+    ]
