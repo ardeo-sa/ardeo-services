@@ -167,6 +167,7 @@ def upload_supporting_file(
         meeting_id (int): Target meeting ID.
         file (UploadFile): The uploaded file.
         db (Session): Database session.
+        current_user (User): Authenticated user with allowed role.
 
     Returns:
         dict: Confirmation and file metadata.
