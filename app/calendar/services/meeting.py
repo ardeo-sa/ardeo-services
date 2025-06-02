@@ -78,6 +78,8 @@ def add_patients_to_meeting(meeting_id: int, patient_ids: List[int], db: Session
         raise HTTPException(status_code=404, detail="Meeting not found")
     if meeting.type != MeetingType.mdt:
         raise HTTPException(status_code=400, detail="Patients can only be added to MDT meetings")
+    if meeting.locked:
+        raise HTTPException(status_code=403, detail="Meeting is locked. Cannot add patients.")
 
     patients = db.query(Patient).filter(Patient.id.in_(patient_ids)).all()
     meeting.patients.extend(p for p in patients if p not in meeting.patients)

@@ -25,6 +25,7 @@ from app.core.dependencies import get_current_user, require_role
 from app.database.services import get_services_db
 
 from app.users.models.user import User
+from app.calendar.schemas.meeting import MeetingNoteUpdate
 
 MAX_FILE_SIZE_MB = 10
 UPLOAD_DIR = "uploaded_files/meetings"
@@ -119,6 +120,40 @@ def add_note_to_meeting(
     return services.add_meeting_note(meeting_id, note, current_user, db)
 
 
+@router.put("/{meeting_id}/notes/{note_id}", response_model=MeetingNoteResponse)
+def edit_note_to_meeting(
+    meeting_id: int,
+    note_id: int,
+    note: MeetingNoteUpdate,
+    db: Session = Depends(get_services_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Edit a note in an MDT meeting.
+
+    Only the original author may edit their note.
+    Locked meetings do not allow edits.
+    """
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    if meeting.locked:
+        raise HTTPException(status_code=403, detail="Meeting is locked. Notes cannot be edited.")
+
+    note_obj = db.query(MeetingNote).filter_by(id=note_id, meeting_id=meeting_id).first()
+    if not note_obj:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    if note_obj.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only edit your own notes.")
+
+    note_obj.type = note.type
+    note_obj.content = note.content
+    db.commit()
+    db.refresh(note_obj)
+    return note_obj
+
+
 @router.post("/{meeting_id}/lock")
 def lock_meeting(
     meeting_id: int,
@@ -178,13 +213,16 @@ def upload_supporting_file(
         raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
 
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    # Check if meeting exists
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
+    # Enforce lock check
+    if meeting.locked:
+        raise HTTPException(status_code=403, detail="Meeting is locked. Uploads are not allowed.")
 
     # Generate unique file path and save file
     filename = f"{uuid4()}_{file.filename}"
     filepath = os.path.join(UPLOAD_DIR, filename)
-
     with open(filepath, "wb") as f:
         f.write(contents)
 
