@@ -1,4 +1,5 @@
 from sqlalchemy import Enum as SQLAlchemyEnum
+from sqlalchemy import Column, Integer, String
 from ..schemas.user import UserRole
 
 class User(Base):
