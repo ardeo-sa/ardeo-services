@@ -1,3 +1,26 @@
+"""
+This module provides API routes to handle OAuth2 authentication flows for
+Google Calendar and Microsoft Outlook Calendar integrations.
+
+It enables users to:
+- Start the OAuth flow for Google and Microsoft calendars
+- Handle callbacks and securely exchange authorization codes for access tokens
+- Persist calendar tokens in the database for future authenticated requests
+
+Routes:
+- GET /google: Redirects user to Google's OAuth2 consent screen
+- GET /google/callback: Handles Google's redirect with auth code, exchanges for tokens
+- GET /microsoft: Redirects user to Microsoft's OAuth2 consent screen
+- GET /microsoft/callback: Handles Microsoft's redirect with auth code, exchanges for tokens
+
+These endpoints support calendar sync functionality, allowing the app to create
+or manage events on behalf of authenticated users.
+
+Dependencies:
+- FastAPI for routing and dependency injection
+- google-auth-oauthlib for managing Google OAuth2 flow
+- Microsoft OAuth handled via direct POST to the token endpoint
+"""
 import requests
 import uuid
 from fastapi import APIRouter, Request, Depends, HTTPException

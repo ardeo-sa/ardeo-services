@@ -2,22 +2,43 @@
 Pydantic schemas for meetings, including creation, response models,
 notes, and meeting metadata.
 """
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Note
 from enum import Enum
 from typing import List, Optional
 from datetime import datetime
 
 class MeetingType(str, Enum):
+    """
+        Enum representing the type of meeting.
+
+        Options:
+        - `regular`: A standard meeting with general discussions.
+        - `mdt`: A multidisciplinary team (MDT) meeting involving collaborative decision-making across specialties.
+    """
     regular = "regular"
     mdt = "mdt"
 
 class MeetingNoteType(str, Enum):
+    """
+        Enum representing the type of note taken during a meeting.
+
+        Options:
+        - `discussion`: General discussion points.
+        - `recommendation`: Suggestions or advice based on discussion.
+        - `conclusion`: Final decisions or outcomes from the meeting.
+    """
     discussion = "discussion"
     recommendation = "recommendation"
     conclusion = "conclusion"
 
 class MeetingNoteCreate(BaseModel):
+    """
+        Schema for creating a new meeting note.
+
+        Fields:
+        - `type`: The classification of the note (e.g., discussion, recommendation, conclusion).
+        - `content`: The text content of the note (minimum 1 character).
+    """
     type: MeetingNoteType = Field(..., description="Type of note")
     content: str = Field(..., min_length=1, description="Note content")
 
@@ -53,6 +74,9 @@ class MeetingCreate(BaseModel):
 
 
 class MeetingNoteResponse(BaseModel):
+    """
+    Schema for meeting note response
+    """
     id: int
     meeting_id: int
     author_id: int
