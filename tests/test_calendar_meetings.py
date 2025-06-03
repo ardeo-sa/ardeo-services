@@ -212,3 +212,66 @@ def test_create_meeting_as_user_fails_for_mdt(client, override_current_user_norm
 
     response = client.post("/api/meetings/", json=payload)
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+def test_add_patient_to_meeting_as_coordinator(client, override_current_user_coord, db_session):
+    """
+    Test that a coordinator can add patients to a meeting.
+    """
+    # First, create a meeting
+    response = client.post("/api/meetings/", json={
+        "title": "MDT for Patient Add",
+        "type": "mdt",
+        "scheduled_at": "2025-07-01T14:00:00Z"
+    })
+    assert response.status_code == 200
+    meeting_id = response.json()["id"]
+
+    # Add patients
+    response = client.post(f"/api/meetings/{meeting_id}/patients", json=[101, 102])
+    assert response.status_code == 200
+    assert "patients" in response.json()
+
+
+@pytest.mark.asyncio
+def test_upload_supporting_file(client, override_current_user_coord, db_session):
+    """
+    Test that a coordinator can upload a file to a meeting.
+    """
+    # Create a meeting
+    response = client.post("/api/meetings/", json={
+        "title": "File Upload MDT",
+        "type": "mdt",
+        "scheduled_at": "2025-07-02T09:00:00Z"
+    })
+    assert response.status_code == 200
+    meeting_id = response.json()["id"]
+
+    # Simulate file upload
+    file_content = b"This is a test PDF content"
+    file_data = {
+        "file": ("test.pdf", file_content, "application/pdf")
+    }
+
+    upload_url = f"/api/meetings/{meeting_id}/files"
+    response = client.post(upload_url, files=file_data)
+
+    assert response.status_code == 200
+    resp_json = response.json()
+    assert resp_json["filename"] == "test.pdf"
+    assert resp_json["size_bytes"] == len(file_content)
+
+
+@pytest.mark.asyncio
+def test_download_file_requires_participant(client, override_current_user_coord, db_session):
+    """
+    Test that only participants can download uploaded files.
+    """
+    # Assume upload already done, test rejection for non-participant
+    meeting_id = 1
+    file_id = 1
+    response = client.get(f"/api/meetings/{meeting_id}/files/{file_id}")
+    assert response.status_code in [403, 404]
+
+

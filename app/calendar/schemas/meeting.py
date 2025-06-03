@@ -18,37 +18,6 @@ class MeetingType(str, Enum):
     regular = "regular"
     mdt = "mdt"
 
-class MeetingNoteType(str, Enum):
-    """
-        Enum representing the type of note taken during a meeting.
-
-        Options:
-        - `discussion`: General discussion points.
-        - `recommendation`: Suggestions or advice based on discussion.
-        - `conclusion`: Final decisions or outcomes from the meeting.
-    """
-    discussion = "discussion"
-    recommendation = "recommendation"
-    conclusion = "conclusion"
-
-class MeetingNoteCreate(BaseModel):
-    """
-        Schema for creating a new meeting note.
-
-        Fields:
-        - `type`: The classification of the note (e.g., discussion, recommendation, conclusion).
-        - `content`: The text content of the note (minimum 1 character).
-    """
-    type: MeetingNoteType = Field(..., description="Type of note")
-    content: str = Field(..., min_length=1, description="Note content")
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "type": "recommendation",
-                "content": "Consider MRI follow-up within 3 months."
-            }
-        }
 
 class MeetingCreate(BaseModel):
     """
@@ -73,6 +42,34 @@ class MeetingCreate(BaseModel):
         }
 
 
+class MeetingResponse(BaseModel):
+    """
+    Basic meeting response.
+    """
+    id: int
+    title: str
+    type: MeetingType
+    start_time: datetime
+    end_time: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class MeetingNoteType(str, Enum):
+    """
+        Enum representing the type of note taken during a meeting.
+
+        Options:
+        - `discussion`: General discussion points.
+        - `recommendation`: Suggestions or advice based on discussion.
+        - `conclusion`: Final decisions or outcomes from the meeting.
+    """
+    discussion = "discussion"
+    recommendation = "recommendation"
+    conclusion = "conclusion"
+
+
 class MeetingNoteResponse(BaseModel):
     """
     Schema for meeting note response
@@ -84,24 +81,26 @@ class MeetingNoteResponse(BaseModel):
     content: str
     created_at: datetime
 
+    class Config:
+        orm_mode = True
 
-class MeetingResponse(BaseModel):
+
+class MeetingNotes(BaseModel):
     """
-    Basic meeting response.
+    Aggregated response for a list of notes, if needed as a standalone response.
     """
-    id: int
-    title: str
-    type: str
-    start_time: datetime
-    end_time: datetime
+    meeting_id: int
+    notes: List[MeetingNoteResponse]
+
 
 class MeetingDetail(MeetingResponse):
     """
     Detailed meeting response with participants, notes, and lock status.
     """
     participants: List[int]
-    notes: List[Note]
+    notes: List[MeetingNoteResponse]
     locked: bool
+
 
 class NoteBase(BaseModel):
     """
@@ -110,11 +109,13 @@ class NoteBase(BaseModel):
     content: str
     type: str  # e.g., "discussion", "recommendation", "conclusion"
 
+
 class NoteCreate(NoteBase):
     """
     Schema for creating a new note.
     """
     pass
+
 
 class Note(NoteBase):
     """
@@ -126,9 +127,30 @@ class Note(NoteBase):
     class Config:
         orm_mode = True
 
+
+class MeetingNoteCreate(BaseModel):
+    """
+        Schema for creating a new meeting note.
+
+        Fields:
+        - `type`: The classification of the note (e.g., discussion, recommendation, conclusion).
+        - `content`: The text content of the note (minimum 1 character).
+    """
+    type: MeetingNoteType = Field(..., description="Type of note")
+    content: str = Field(..., min_length=1, description="Note content")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "type": "recommendation",
+                "content": "Consider MRI follow-up within 3 months."
+            }
+        }
+
+
 class MeetingNoteUpdate(BaseModel):
     """
     Edit meeting note
     """
-    type: str
+    type: MeetingNoteType
     content: str

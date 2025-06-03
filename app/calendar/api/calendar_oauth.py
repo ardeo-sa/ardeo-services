@@ -23,8 +23,10 @@ Dependencies:
 """
 import requests
 import uuid
+
 from fastapi import APIRouter, Request, Depends, HTTPException
 from starlette.responses import RedirectResponse
+from sqlalchemy.orm import Session
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 
@@ -37,7 +39,6 @@ from app.calendar.schemas.oauth import OAuthTokenResponse
 from app.core.dependencies import get_current_user
 from app.database.services import get_services_db
 from app.users.models.user import User
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/calendar/oauth", tags=["Calendar OAuth"])
 
