@@ -101,3 +101,10 @@ class Note(NoteBase):
 
     class Config:
         orm_mode = True
+
+class MeetingNoteUpdate(BaseModel):
+    """
+    Edit meeting note
+    """
+    type: str
+    content: str
