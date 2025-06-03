@@ -21,7 +21,8 @@ class Meeting(Base):
 
     participants = relationship("MeetingParticipant", back_populates="meeting")
     notes = relationship("MeetingNote", back_populates="meeting")
-    patients = relationship("MeetingPatient", back_populates="meeting")
+    meeting_patients = relationship("MeetingPatient", back_populates="meeting", cascade="all, delete-orphan")
+    patients = relationship("Patient", secondary="meeting_patients", viewonly=True, back_populates="meetings")
 
 class MeetingParticipant(Base):
     """
@@ -56,7 +57,8 @@ class MeetingPatient(Base):
     __tablename__ = "meeting_patients"
 
     id = Column(Integer, primary_key=True, index=True)
-    meeting_id = Column(Integer, ForeignKey("meetings.id"))
-    patient_id = Column(Integer)
+    meeting_id = Column(Integer, ForeignKey("meetings.id", ondelete="CASCADE"))
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"))
 
-    meeting = relationship("Meeting", back_populates="patients")
+    meeting = relationship("Meeting", back_populates="meeting_patients")
+    patient = relationship("Patient", back_populates="meeting_links")

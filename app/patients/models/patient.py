@@ -5,11 +5,13 @@ This model represents a patient in the healthcare system who may be involved
 in one or more clinical meetings (e.g., MDTs). It includes identifying info,
 contact details, and a link to their primary clinician.
 """
+import enum
+
 from sqlalchemy import Column, Integer, String, Date, ForeignKey, Enum as SQLAlchemyEnum
 from sqlalchemy.orm import relationship
+
 from app.database.services import Base
 from app.users.models.user import User
-import enum
 
 
 class Gender(str, enum.Enum):
@@ -40,6 +42,19 @@ class Patient(Base):
 
     primary_clinician_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     primary_clinician = relationship("User", backref="patients")
+
+    meeting_links = relationship(
+        "MeetingPatient",
+        back_populates="patient",
+        cascade="all, delete-orphan"
+    )
+
+    meetings = relationship(
+        "Meeting",
+        secondary="meeting_patients",
+        viewonly=True,
+        back_populates="patients"
+    )
 
     def __repr__(self):
         return f"<Patient(id={self.id}, name='{self.first_name} {self.last_name}')>"
