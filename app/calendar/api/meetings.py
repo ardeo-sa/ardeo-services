@@ -1,15 +1,12 @@
 """
 Endpoints for managing calendar meetings, including regular and MDT meetings.
 """
-from datetime import datetime
-from typing import Optional, List
-import os
-from uuid import uuid4
-from pathlib import Path
+from fastapi import APIRouter
 
-from fastapi import APIRouter, Depends, HTTPException, Body, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Body
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from typing import List
 
 from app.calendar.schemas.meeting import (
     MeetingCreate,
@@ -27,11 +24,6 @@ from app.database.services import get_services_db
 from app.calendar.services.audit import log_meeting_action
 from app.users.models.user import User
 from app.calendar.schemas.meeting import MeetingNoteUpdate
-
-MAX_FILE_SIZE_MB = 10
-UPLOAD_DIR = "uploaded_files/meetings"
-
-Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
 router = APIRouter()
 
@@ -200,6 +192,7 @@ def lock_meeting(
         object_type="meeting"
     )
     return {"detail": f"Meeting {meeting.id} locked."}
+
 
 
 @router.post("/{meeting_id}/files", response_model=dict)
