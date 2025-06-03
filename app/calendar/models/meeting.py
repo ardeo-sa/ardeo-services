@@ -2,9 +2,13 @@
 SQLAlchemy models for meeting data including meeting details,
 participants, notes, and patients discussed in MDT.
 """
+from datetime import datetime, timezone
+
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
+
 from app.database.services import Base
+
 
 class Meeting(Base):
     """
@@ -24,6 +28,7 @@ class Meeting(Base):
     meeting_patients = relationship("MeetingPatient", back_populates="meeting", cascade="all, delete-orphan")
     patients = relationship("Patient", secondary="meeting_patients", viewonly=True, back_populates="meetings")
 
+
 class MeetingParticipant(Base):
     """
     Links users to meetings as participants.
@@ -35,6 +40,7 @@ class MeetingParticipant(Base):
     user_id = Column(Integer)
 
     meeting = relationship("Meeting", back_populates="participants")
+
 
 class MeetingNote(Base):
     """
@@ -50,6 +56,7 @@ class MeetingNote(Base):
 
     meeting = relationship("Meeting", back_populates="notes")
 
+
 class MeetingPatient(Base):
     """
     Patients associated with MDT meetings.
@@ -62,3 +69,22 @@ class MeetingPatient(Base):
 
     meeting = relationship("Meeting", back_populates="meeting_patients")
     patient = relationship("Patient", back_populates="meeting_links")
+
+
+class SupportingFile(Base):
+    """
+    Represents a file uploaded to a meeting (e.g., reports, attachments).
+    """
+    __tablename__ = "supporting_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    meeting_id = Column(Integer, ForeignKey("meetings.id", ondelete="CASCADE"))
+    name = Column(String, nullable=False)
+    path = Column(String, nullable=False)
+    file_size = Column(Integer)
+    mime_type = Column(String)
+    is_encrypted = Column(Boolean, default=False)
+    encryption_method = Column(String, nullable=True)
+    uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    meeting = relationship("Meeting", backref="supporting_files")
