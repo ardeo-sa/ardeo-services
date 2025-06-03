@@ -1,12 +1,19 @@
 """
 Endpoints for managing calendar meetings, including regular and MDT meetings.
 """
-from fastapi import APIRouter
+from uuid import uuid4
+import os
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from fastapi.responses import FileResponse
+from fastapi import File, UploadFile
 from sqlalchemy.orm import Session
-from typing import List
+
+MAX_FILE_SIZE_MB = 100
+UPLOAD_DIR = "/tmp/uploads"
+
 
 from app.calendar.schemas.meeting import (
     MeetingCreate,
@@ -26,6 +33,7 @@ from app.users.models.user import User
 from app.calendar.schemas.meeting import MeetingNoteUpdate
 
 router = APIRouter()
+
 
 @router.post("/", response_model=MeetingResponse)
 def create_meeting(
@@ -58,11 +66,20 @@ def create_meeting(
 
 
 @router.get("/{meeting_id}", response_model=MeetingDetail)
-def get_meeting(meeting_id: int, db: Session = Depends(get_services_db)):
+def get_meeting(
+    meeting_id: int,
+    db: Session = Depends(get_services_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Retrieve details of a specific meeting by ID.
     """
-    return services.get_meeting(meeting_id, db)
+    meeting = services.get_meeting(meeting_id, db)
+    if current_user.role not in ("admin", "coordinator") and current_user.id not in [p.id for p in
+                                                                                     meeting.participants]:
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    return meeting
 
 
 @router.post("/{meeting_id}/patients", response_model=MeetingResponse)
@@ -110,16 +127,19 @@ def add_note_to_meeting(
     Returns:
         MeetingNoteResponse: The saved note entry.
     """
+
+    meeting_note = services.add_meeting_note(meeting_id, note, current_user, db)
+
     log_meeting_action(
         db=db,
         user=current_user,
         meeting_id=meeting_id,
         action="add_note",
         object_type="note",
-        object_id=note.id,
+        object_id=meeting_note.id,
         metadata={"type": note.type}
     )
-    return services.add_meeting_note(meeting_id, note, current_user, db)
+    return meeting_note
 
 
 @router.put("/{meeting_id}/notes/{note_id}", response_model=MeetingNoteResponse)
@@ -153,7 +173,7 @@ def edit_note_to_meeting(
     note_obj.content = note.content
     db.commit()
     db.refresh(note_obj)
-    return note_obj
+    return MeetingNoteResponse.from_orm(note_obj)
 
 
 @router.post("/{meeting_id}/lock")
@@ -217,11 +237,6 @@ def upload_supporting_file(
     Returns:
         dict: Confirmation and file metadata.
     """
-    # Validate file size (read into memory buffer to check)
-    contents = file.file.read()
-    if len(contents) > MAX_FILE_SIZE_MB * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
-
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     # Check if meeting exists
     if not meeting:
@@ -231,22 +246,32 @@ def upload_supporting_file(
         raise HTTPException(status_code=403, detail="Meeting is locked. Uploads are not allowed.")
 
     # Generate unique file path and save file
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     filename = f"{uuid4()}_{file.filename}"
     filepath = os.path.join(UPLOAD_DIR, filename)
-    with open(filepath, "wb") as f:
-        f.write(contents)
+
+    # Stream file to disk and check size
+    max_size_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
+    total_size = 0
+    with open(filepath, "wb") as out_file:
+        while chunk := file.file.read(1024 * 1024):  # 1MB chunks
+            total_size += len(chunk)
+            if total_size > max_size_bytes:
+                out_file.close()
+                os.remove(filepath)
+                raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
+            out_file.write(chunk)
 
     # Create DB record
     file_record = SupportingFile(
         meeting_id=meeting_id,
         name=file.filename,
         path=filepath,
-        file_size=len(contents),
+        file_size=total_size,
         mime_type=file.content_type,
         is_encrypted=False,
         encryption_method=None,
     )
-
     db.add(file_record)
     db.commit()
     db.refresh(file_record)
@@ -296,7 +321,7 @@ def download_supporting_file(
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
-    if current_user not in meeting.participants:
+    if current_user.id not in [p.id for p in meeting.participants]:
         raise HTTPException(status_code=403, detail="Access denied:: Only participants can download files")
 
     file = db.query(SupportingFile).filter_by(id=file_id, meeting_id=meeting_id).first()

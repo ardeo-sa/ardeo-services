@@ -2,7 +2,7 @@
 Pydantic schemas for meetings, including creation, response models,
 notes, and meeting metadata.
 """
-from pydantic import BaseModel, Field, Note
+from pydantic import BaseModel, Field
 from enum import Enum
 from typing import List, Optional
 from datetime import datetime
@@ -100,32 +100,6 @@ class MeetingDetail(MeetingResponse):
     participants: List[int]
     notes: List[MeetingNoteResponse]
     locked: bool
-
-
-class NoteBase(BaseModel):
-    """
-    Base fields for meeting notes.
-    """
-    content: str
-    type: str  # e.g., "discussion", "recommendation", "conclusion"
-
-
-class NoteCreate(NoteBase):
-    """
-    Schema for creating a new note.
-    """
-    pass
-
-
-class Note(NoteBase):
-    """
-    Returned note object with metadata.
-    """
-    id: int
-    created_at: datetime
-
-    class Config:
-        orm_mode = True
 
 
 class MeetingNoteCreate(BaseModel):
