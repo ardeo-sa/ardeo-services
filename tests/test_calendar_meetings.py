@@ -181,3 +181,34 @@ def test_get_meeting_audit_log_as_admin(client: TestClient, db_session):
         assert isinstance(response.json(), list)
     else:
         assert response.status_code in [403, 401]
+
+
+@pytest.mark.asyncio
+def test_create_meeting_as_coordinator(client, override_current_user_coord, db_session):
+    """
+    Test coordinator can create an MDT meeting.
+    """
+    payload = {
+        "title": "Neuro MDT",
+        "type": "mdt",
+        "scheduled_at": "2025-06-05T10:00:00Z"
+    }
+
+    response = client.post("/api/meetings/", json=payload)
+    assert response.status_code == 200
+    assert response.json()["title"] == "Neuro MDT"
+
+
+@pytest.mark.asyncio
+def test_create_meeting_as_user_fails_for_mdt(client, override_current_user_normal):
+    """
+    Test normal users cannot create MDT meetings.
+    """
+    payload = {
+        "title": "MDT Attempt",
+        "type": "mdt",
+        "scheduled_at": "2025-06-06T09:00:00Z"
+    }
+
+    response = client.post("/api/meetings/", json=payload)
+    assert response.status_code == 403
