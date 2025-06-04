@@ -37,7 +37,7 @@ class MeetingAuditLog(Base):
     action = Column(String, nullable=False)  # e.g., add_note, edit_note, upload_file
     object_type = Column(String, nullable=False)  # e.g., note, file, meeting
     object_id = Column(Integer, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    meta = Column(JSON, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")

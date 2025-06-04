@@ -17,7 +17,7 @@ def log_meeting_action(
     action: str,
     object_type: str,
     object_id: int = None,
-    metadata: dict = None,
+    meta: dict = None,
 ):
     """
        Save a meeting audit log entry.
@@ -32,7 +32,7 @@ def log_meeting_action(
        - action (str): The action performed (e.g., "add_note", "edit_note").
        - object_type (str): The type of object acted upon (e.g., "note", "file").
        - object_id (int, optional): The ID of the affected object.
-       - metadata (dict, optional): Additional contextual information.
+       - meta (dict, optional): Additional contextual information.
     """
     entry = MeetingAuditLog(
         meeting_id=meeting_id,
@@ -40,7 +40,7 @@ def log_meeting_action(
         action=action,
         object_type=object_type,
         object_id=object_id,
-        metadata=metadata or {}
+        metadata=meta or {}
     )
     db.add(entry)
     db.commit()
