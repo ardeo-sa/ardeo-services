@@ -40,6 +40,26 @@ async def override_get_db():
 app.dependency_overrides[get_services_db] = override_get_db
 
 
+@pytest.fixture(autouse=True)
+def mock_env_vars(monkeypatch):
+    # Mock DB URI
+    monkeypatch.setenv("SERVICES_DB_URI", "sqlite:///./test.db")
+
+    # Mock Google OAuth
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "fake-google-client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "fake-google-client-secret")
+    monkeypatch.setenv("GOOGLE_REDIRECT_URI", "http://localhost/fake-google-redirect")
+
+    # Mock Microsoft OAuth
+    monkeypatch.setenv("MICROSOFT_CLIENT_ID", "fake-microsoft-client-id")
+    monkeypatch.setenv("MICROSOFT_CLIENT_SECRET", "fake-microsoft-client-secret")
+    monkeypatch.setenv("MICROSOFT_REDIRECT_URI", "http://localhost/fake-microsoft-redirect")
+
+    import importlib
+    import app.config
+    importlib.reload(app.config)
+
+
 @pytest.fixture(scope="session")
 def event_loop():
     """
@@ -134,4 +154,5 @@ async def override_current_user_normal(normal_user):
 @pytest.fixture
 async def override_current_user_coord(coordinator_user):
     app.dependency_overrides[get_current_user] = override_user(coordinator_user)
+
 
