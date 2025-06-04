@@ -5,21 +5,31 @@ Includes tests for meeting creation, listing, retrieval, note editing, adding pa
 and permission validation for locking and audit logging.
 """
 import pytest
+import httpx
 from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 
-from app.calendar.schemas.meeting import MeetingNote, MeetingCreate, MeetingNoteCreate, MeetingType, MeetingNoteType
+from app.calendar.schemas.meeting import MeetingCreate, MeetingNoteCreate, MeetingType, MeetingNoteType
 from app.users.models.user import User
+from app.main import app
+
+
+@pytest.fixture
+async def async_client():
+    async with httpx.AsyncClient(app=app, base_url="http://testserver") as client:
+        yield client
 
 
 @pytest.mark.asyncio
-def test_create_regular_meeting(client: TestClient, db_session):
+async def test_create_regular_meeting(client: TestClient, db_session):
     """
     Test creating a regular meeting by a normal user.
     """
     # Mock user with no special role
     user = User(id=1, role="user")
+    db_session.add(user)
+    db_session.commit()
 
     meeting_data = {
         "title": "Test Regular Meeting",
@@ -29,15 +39,17 @@ def test_create_regular_meeting(client: TestClient, db_session):
     }
 
     # Simulate login by overriding dependency or using a fixture that returns `user`
-    response = client.post("/api/meetings/", json=meeting_data)
+    response = await async_client.post("/api/meetings/", json=meeting_data)
+
     assert response.status_code == 200
     data = response.json()
+
     assert data["title"] == meeting_data["title"]
     assert data["type"] == meeting_data["type"]
 
 
 @pytest.mark.asyncio
-def test_create_mdt_meeting_requires_coordinator_role(client: TestClient):
+async def test_create_mdt_meeting_requires_coordinator_role(client: TestClient):
     """
     Test that creating an MDT meeting without coordinator role fails.
     """
@@ -49,12 +61,13 @@ def test_create_mdt_meeting_requires_coordinator_role(client: TestClient):
     }
 
     # Assume user with role 'user' (not coordinator)
-    response = client.post("/api/meetings/", json=meeting_data)
+    response = async_client.post("/api/meetings/", json=meeting_data)
+
     assert response.status_code == 403 or response.status_code == 401
 
 
 @pytest.mark.asyncio
-def test_add_note_to_meeting(client: TestClient, db_session):
+async def test_add_note_to_meeting(client: TestClient, db_session):
     """
     Test adding a note to a meeting.
     """
@@ -66,7 +79,7 @@ def test_add_note_to_meeting(client: TestClient, db_session):
         "content": "This is a test recommendation note."
     }
 
-    response = client.post(f"/api/meetings/{meeting_id}/notes", json=note_data)
+    response = async_client.post(f"/api/meetings/{meeting_id}/notes", json=note_data)
     assert response.status_code == 200
     note = response.json()
     assert note["content"] == note_data["content"]
@@ -74,47 +87,47 @@ def test_add_note_to_meeting(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-def test_lock_meeting_requires_proper_role(client: TestClient, db_session):
+async def test_lock_meeting_requires_proper_role(client: TestClient, db_session):
     """
     Test locking a meeting as a user without permission fails.
     """
     meeting_id = 1
 
-    response = client.post(f"/api/meetings/{meeting_id}/lock")
+    response = async_client.post(f"/api/meetings/{meeting_id}/lock")
     # Expect 403 Forbidden if not coordinator or admin
     assert response.status_code == 403 or response.status_code == 401
 
 
 @pytest.mark.asyncio
-def test_get_meeting_audit_log_requires_coordinator_or_admin(client: TestClient, db_session):
+async def test_get_meeting_audit_log_requires_coordinator_or_admin(client: TestClient, db_session):
     """
     Test that audit log retrieval is forbidden for normal users.
     """
     meeting_id = 1
 
-    response = client.get(f"/api/meetings/{meeting_id}/audit")
+    response = async_client.get(f"/api/meetings/{meeting_id}/audit")
     assert response.status_code == 403 or response.status_code == 401
 
 
 @pytest.mark.asyncio
-def test_list_meetings(client: TestClient, db_session):
+async def test_list_meetings(client: TestClient, db_session):
     """
     Test that listing meetings returns valid meeting data.
     """
-    response = client.get("/api/meetings/")
+    response = async_client.get("/api/meetings/")
     assert response.status_code == 200
     meetings = response.json()
     assert isinstance(meetings, list)
 
 
 @pytest.mark.asyncio
-def test_get_meeting_by_id(client: TestClient, db_session):
+async def test_get_meeting_by_id(client: TestClient, db_session):
     """
     Test retrieving a meeting by its ID.
     """
     # Assumes a meeting with ID 1 exists
     meeting_id = 1
-    response = client.get(f"/api/meetings/{meeting_id}")
+    response = async_client.get(f"/api/meetings/{meeting_id}")
     assert response.status_code == 200
     meeting = response.json()
     assert meeting["id"] == meeting_id
@@ -122,7 +135,7 @@ def test_get_meeting_by_id(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-def test_edit_note_only_by_author(client: TestClient, db_session):
+async def test_edit_note_only_by_author(client: TestClient, db_session):
     """
     Test that only the author can edit a meeting note.
     """
@@ -134,7 +147,7 @@ def test_edit_note_only_by_author(client: TestClient, db_session):
         "content": "Edited note content"
     }
 
-    response = client.put(
+    response = async_client.put(
         f"/api/meetings/{meeting_id}/notes/{note_id}",
         json=edit_payload
     )
@@ -144,26 +157,26 @@ def test_edit_note_only_by_author(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-def test_add_patient_to_meeting_requires_coordinator(client: TestClient):
+async def test_add_patient_to_meeting_requires_coordinator(client: TestClient):
     """
     Test adding patients to a meeting is restricted to coordinators.
     """
     meeting_id = 1
     payload = [10, 11]
 
-    response = client.post(f"/api/meetings/{meeting_id}/patients", json=payload)
+    response = async_client.post(f"/api/meetings/{meeting_id}/patients", json=payload)
     assert response.status_code in [403, 401]
 
 
 @pytest.mark.asyncio
-def test_lock_meeting_success(client: TestClient, db_session):
+async def test_lock_meeting_success(client: TestClient, db_session):
     """
     Test locking a meeting as a user with 'coordinator' or 'admin' role.
     """
     meeting_id = 1
 
     # Assuming a coordinator user is authenticated
-    response = client.post(f"/api/meetings/{meeting_id}/lock")
+    response = async_client.post(f"/api/meetings/{meeting_id}/lock")
     if response.status_code == 200:
         assert "locked" in response.json()["detail"]
     else:
@@ -171,12 +184,12 @@ def test_lock_meeting_success(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-def test_get_meeting_audit_log_as_admin(client: TestClient, db_session):
+async def test_get_meeting_audit_log_as_admin(client: TestClient, db_session):
     """
     Test audit log is accessible to users with 'admin' or 'coordinator' roles.
     """
     meeting_id = 1
-    response = client.get(f"/api/meetings/{meeting_id}/audit")
+    response = async_client.get(f"/api/meetings/{meeting_id}/audit")
     if response.status_code == 200:
         assert isinstance(response.json(), list)
     else:
@@ -184,7 +197,7 @@ def test_get_meeting_audit_log_as_admin(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-def test_create_meeting_as_coordinator(client, override_current_user_coord, db_session):
+async def test_create_meeting_as_coordinator(client, override_current_user_coord, db_session):
     """
     Test coordinator can create an MDT meeting.
     """
@@ -194,13 +207,13 @@ def test_create_meeting_as_coordinator(client, override_current_user_coord, db_s
         "scheduled_at": "2025-06-05T10:00:00Z"
     }
 
-    response = client.post("/api/meetings/", json=payload)
+    response = async_client.post("/api/meetings/", json=payload)
     assert response.status_code == 200
     assert response.json()["title"] == "Neuro MDT"
 
 
 @pytest.mark.asyncio
-def test_create_meeting_as_user_fails_for_mdt(client, override_current_user_normal):
+async def test_create_meeting_as_user_fails_for_mdt(client, override_current_user_normal):
     """
     Test normal users cannot create MDT meetings.
     """
@@ -210,17 +223,17 @@ def test_create_meeting_as_user_fails_for_mdt(client, override_current_user_norm
         "scheduled_at": "2025-06-06T09:00:00Z"
     }
 
-    response = client.post("/api/meetings/", json=payload)
+    response = async_client.post("/api/meetings/", json=payload)
     assert response.status_code == 403
 
 
 @pytest.mark.asyncio
-def test_add_patient_to_meeting_as_coordinator(client, override_current_user_coord, db_session):
+async def test_add_patient_to_meeting_as_coordinator(client, override_current_user_coord, db_session):
     """
     Test that a coordinator can add patients to a meeting.
     """
     # First, create a meeting
-    response = client.post("/api/meetings/", json={
+    response = async_client.post("/api/meetings/", json={
         "title": "MDT for Patient Add",
         "type": "mdt",
         "scheduled_at": "2025-07-01T14:00:00Z"
@@ -229,18 +242,18 @@ def test_add_patient_to_meeting_as_coordinator(client, override_current_user_coo
     meeting_id = response.json()["id"]
 
     # Add patients
-    response = client.post(f"/api/meetings/{meeting_id}/patients", json=[101, 102])
+    response = async_client.post(f"/api/meetings/{meeting_id}/patients", json=[101, 102])
     assert response.status_code == 200
     assert "patients" in response.json()
 
 
 @pytest.mark.asyncio
-def test_upload_supporting_file(client, override_current_user_coord, db_session):
+async def test_upload_supporting_file(client, override_current_user_coord, db_session):
     """
     Test that a coordinator can upload a file to a meeting.
     """
     # Create a meeting
-    response = client.post("/api/meetings/", json={
+    response = async_client.post("/api/meetings/", json={
         "title": "File Upload MDT",
         "type": "mdt",
         "scheduled_at": "2025-07-02T09:00:00Z"
@@ -255,7 +268,7 @@ def test_upload_supporting_file(client, override_current_user_coord, db_session)
     }
 
     upload_url = f"/api/meetings/{meeting_id}/files"
-    response = client.post(upload_url, files=file_data)
+    response = async_client.post(upload_url, files=file_data)
 
     assert response.status_code == 200
     resp_json = response.json()
@@ -264,14 +277,12 @@ def test_upload_supporting_file(client, override_current_user_coord, db_session)
 
 
 @pytest.mark.asyncio
-def test_download_file_requires_participant(client, override_current_user_coord, db_session):
+async def test_download_file_requires_participant(client, override_current_user_coord, db_session):
     """
     Test that only participants can download uploaded files.
     """
     # Assume upload already done, test rejection for non-participant
     meeting_id = 1
     file_id = 1
-    response = client.get(f"/api/meetings/{meeting_id}/files/{file_id}")
+    response = async_client.get(f"/api/meetings/{meeting_id}/files/{file_id}")
     assert response.status_code in [403, 404]
-
-

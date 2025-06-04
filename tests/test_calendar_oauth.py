@@ -28,7 +28,7 @@ def test_microsoft_oauth_redirect(client):
 @pytest.mark.asyncio
 @patch("app.calendar.api.calendar_oauth.Flow.fetch_token")
 @patch("app.calendar.api.calendar_oauth.save_calendar_token")
-def test_google_callback(mock_save_token, mock_fetch_token, client, db_session):
+async def test_google_callback(mock_save_token, mock_fetch_token, async_client, db_session):
     """
     Test Google OAuth callback endpoint with mocked token fetching and token saving.
     """
@@ -43,17 +43,18 @@ def test_google_callback(mock_save_token, mock_fetch_token, client, db_session):
 
     with patch("app.calendar.api.calendar_oauth.Flow.credentials", new_callable=property) as mock_cred:
         mock_cred.return_value = MockCredentials()
-        response = client.get("/api/calendar/oauth/google/callback?code=fakecode")
+        response = await async_client.get("/api/calendar/oauth/google/callback?code=fakecode")
         assert response.status_code == 200
         data = response.json()
         assert data["access_token"] == "access-token-123"
         assert "refresh_token" in data
         mock_save_token.assert_called_once()
 
+
 @pytest.mark.asyncio
 @patch("requests.post")
 @patch("app.calendar.api.calendar_oauth.save_calendar_token")
-def test_microsoft_callback(mock_save_token, mock_post, client, db_session):
+async def test_microsoft_callback(mock_save_token, mock_post, async_client, db_session):
     """
     Test Microsoft OAuth callback endpoint with mocked HTTP POST and token saving.
     """
@@ -66,7 +67,7 @@ def test_microsoft_callback(mock_save_token, mock_post, client, db_session):
         "token_type": "Bearer"
     }
 
-    response = client.get("/api/calendar/oauth/microsoft/callback?code=fakecode")
+    response = await async_client.get("/api/calendar/oauth/microsoft/callback?code=fakecode")
     assert response.status_code == 200
     data = response.json()
     assert data["access_token"] == "ms-access-token"

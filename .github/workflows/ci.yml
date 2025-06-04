@@ -45,7 +45,8 @@ jobs:
         env:
           PYTHONPATH: .
         run: |
-          pytest --cov=app tests/
+          pytest --cov=app --cov-report=term-missing --cov-report=html
+
 
   docker-build:
     runs-on: ubuntu-latest
