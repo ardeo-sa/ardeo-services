@@ -99,4 +99,13 @@ These UIs are automatically generated from your FastAPI routes, response_models,
 - Tags: Routes are grouped by tags like Meetings, Users, or Patients to improve organization.
 - Descriptions: You can define endpoint-level and tag-level descriptions to clarify business logic.
 - Schema Examples: Pydantic models include examples for request and response payloads.
-- Metadata: You can set custom project-level metadata like title, version, and contact info in FastAPI(...).
+- Metadata: You can set custom project-level metadata like title, version, and contact info in FastAPI()
+
+```python
+app = FastAPI(
+    title="Ardeo Services API",
+    version="1.0.0",
+    description="Backend for meeting scheduling, MDT workflow, and patient management."
+)
+
+```
