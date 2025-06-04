@@ -1,0 +1,11 @@
+SERVICES_DB_URI=postgresql://user:password@host:port/services_db
+
+# Google OAuth Credentials
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:8000/api/calendar/oauth/google/callback
+
+# Microsoft OAuth Credentials
+MICROSOFT_CLIENT_ID=your-microsoft-client-id
+MICROSOFT_CLIENT_SECRET=your-microsoft-client-secret
+MICROSOFT_REDIRECT_URI=http://localhost:8000/api/calendar/oauth/microsoft/callback
