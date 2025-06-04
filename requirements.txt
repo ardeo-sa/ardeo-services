@@ -9,3 +9,4 @@ python-dotenv
 typing-extensions
 pytest
 httpx
+requests
