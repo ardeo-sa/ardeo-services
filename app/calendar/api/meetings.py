@@ -4,6 +4,7 @@ Endpoints for managing calendar meetings, including regular and MDT meetings.
 from uuid import uuid4
 import os
 from typing import List, Optional
+from datetime import datetime
 
 from fastapi import APIRouter
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
@@ -220,7 +221,7 @@ def upload_supporting_file(
     meeting_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_services_db),
-    current_user=Depends(require_role("coordinator", "admin")),
+    current_user = Depends(require_role("coordinator", "admin")),
 ):
     """
     Upload a supporting file for an MDT meeting.
