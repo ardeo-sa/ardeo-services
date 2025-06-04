@@ -3,6 +3,7 @@ SQLAlchemy models for meeting data including meeting details,
 participants, notes, and patients discussed in MDT.
 """
 from datetime import datetime, timezone
+from enum import Enum
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
@@ -27,6 +28,11 @@ class Meeting(Base):
     notes = relationship("MeetingNote", back_populates="meeting")
     meeting_patients = relationship("MeetingPatient", back_populates="meeting", cascade="all, delete-orphan")
     patients = relationship("Patient", secondary="meeting_patients", viewonly=True, back_populates="meetings")
+
+
+class MeetingType(str, Enum):
+    MDT = "mdt"
+    REVIEW = "review"
 
 
 class MeetingParticipant(Base):
