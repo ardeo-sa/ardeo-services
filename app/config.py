@@ -18,3 +18,8 @@ MICROSOFT_CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET")
 # Optional: Redirect URIs (if used in OAuth logic)
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 MICROSOFT_REDIRECT_URI = os.getenv("MICROSOFT_REDIRECT_URI")
+
+# Microsoft OAuth
+MS_CLIENT_ID = os.getenv("MS_CLIENT_ID")  # <--- This was missing
+MS_CLIENT_SECRET = os.getenv("MS_CLIENT_SECRET")
+MS_REDIRECT_URI = os.getenv("MS_REDIRECT_URI")
