@@ -10,3 +10,4 @@ typing-extensions
 pytest
 httpx
 requests
+google_auth_oauthlib
