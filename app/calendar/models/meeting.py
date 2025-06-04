@@ -18,6 +18,8 @@ class Meeting(Base):
     end_time = Column(DateTime, nullable=False)
     type = Column(String, nullable=False)  # "regular" or "mdt"
     locked = Column(Boolean, default=False)
+    external_event_id = Column(String, nullable=True, unique=True)
+    external_provider = Column(String, nullable=True)  # "google" or "microsoft"
 
     participants = relationship("MeetingParticipant", back_populates="meeting")
     notes = relationship("MeetingNote", back_populates="meeting")
