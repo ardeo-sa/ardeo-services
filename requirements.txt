@@ -14,4 +14,8 @@ pytest-asyncio
 pytest-cov
 factory_boy
 faker
+requests
 
+google-auth-oauthlib
+google-api-python-client
+aiosqlite
