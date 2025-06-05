@@ -29,8 +29,6 @@ AsyncTestingSessionLocal = sessionmaker(
     bind=engine, class_=AsyncSession, expire_on_commit=False
 )
 
-# Create all tables before tests
-Base.metadata.create_all(bind=engine)
 
 # Async override for get_db
 async def override_get_db():
