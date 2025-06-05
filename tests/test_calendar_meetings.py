@@ -5,24 +5,16 @@ Includes tests for meeting creation, listing, retrieval, note editing, adding pa
 and permission validation for locking and audit logging.
 """
 import pytest
-import httpx
+from httpx import AsyncClient
 from datetime import datetime, timedelta
-
-from fastapi.testclient import TestClient
 
 from app.calendar.schemas.meeting import MeetingCreate, MeetingNoteCreate, MeetingType, MeetingNoteType
 from app.users.models.user import User
 from app.main import app
 
 
-@pytest.fixture
-async def async_client():
-    async with httpx.AsyncClient(app=app, base_url="http://testserver") as client:
-        yield client
-
-
 @pytest.mark.asyncio
-async def test_create_regular_meeting(client: TestClient, db_session):
+async def test_create_regular_meeting(async_client: AsyncClient, db_session):
     """
     Test creating a regular meeting by a normal user.
     """
@@ -49,7 +41,7 @@ async def test_create_regular_meeting(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-async def test_create_mdt_meeting_requires_coordinator_role(client: TestClient):
+async def test_create_mdt_meeting_requires_coordinator_role(async_client: AsyncClient):
     """
     Test that creating an MDT meeting without coordinator role fails.
     """
@@ -67,7 +59,7 @@ async def test_create_mdt_meeting_requires_coordinator_role(client: TestClient):
 
 
 @pytest.mark.asyncio
-async def test_add_note_to_meeting(client: TestClient, db_session):
+async def test_add_note_to_meeting(async_client: AsyncClient, db_session):
     """
     Test adding a note to a meeting.
     """
@@ -87,7 +79,7 @@ async def test_add_note_to_meeting(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-async def test_lock_meeting_requires_proper_role(client: TestClient, db_session):
+async def test_lock_meeting_requires_proper_role(async_client: AsyncClient, db_session):
     """
     Test locking a meeting as a user without permission fails.
     """
@@ -99,7 +91,7 @@ async def test_lock_meeting_requires_proper_role(client: TestClient, db_session)
 
 
 @pytest.mark.asyncio
-async def test_get_meeting_audit_log_requires_coordinator_or_admin(client: TestClient, db_session):
+async def test_get_meeting_audit_log_requires_coordinator_or_admin(async_client: AsyncClient, db_session):
     """
     Test that audit log retrieval is forbidden for normal users.
     """
@@ -110,7 +102,7 @@ async def test_get_meeting_audit_log_requires_coordinator_or_admin(client: TestC
 
 
 @pytest.mark.asyncio
-async def test_list_meetings(client: TestClient, db_session):
+async def test_list_meetings(async_client: AsyncClient, db_session):
     """
     Test that listing meetings returns valid meeting data.
     """
@@ -121,7 +113,7 @@ async def test_list_meetings(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-async def test_get_meeting_by_id(client: TestClient, db_session):
+async def test_get_meeting_by_id(async_client: AsyncClient, db_session):
     """
     Test retrieving a meeting by its ID.
     """
@@ -135,7 +127,7 @@ async def test_get_meeting_by_id(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-async def test_edit_note_only_by_author(client: TestClient, db_session):
+async def test_edit_note_only_by_author(async_client: AsyncClient, db_session):
     """
     Test that only the author can edit a meeting note.
     """
@@ -157,7 +149,7 @@ async def test_edit_note_only_by_author(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-async def test_add_patient_to_meeting_requires_coordinator(client: TestClient):
+async def test_add_patient_to_meeting_requires_coordinator(async_client: AsyncClient):
     """
     Test adding patients to a meeting is restricted to coordinators.
     """
@@ -169,7 +161,7 @@ async def test_add_patient_to_meeting_requires_coordinator(client: TestClient):
 
 
 @pytest.mark.asyncio
-async def test_lock_meeting_success(client: TestClient, db_session):
+async def test_lock_meeting_success(async_client: AsyncClient, db_session):
     """
     Test locking a meeting as a user with 'coordinator' or 'admin' role.
     """
@@ -184,7 +176,7 @@ async def test_lock_meeting_success(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-async def test_get_meeting_audit_log_as_admin(client: TestClient, db_session):
+async def test_get_meeting_audit_log_as_admin(async_client: AsyncClient, db_session):
     """
     Test audit log is accessible to users with 'admin' or 'coordinator' roles.
     """
@@ -197,7 +189,7 @@ async def test_get_meeting_audit_log_as_admin(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-async def test_create_meeting_as_coordinator(client, override_current_user_coord, db_session):
+async def test_create_meeting_as_coordinator(async_client: AsyncClient, override_current_user_coord, db_session):
     """
     Test coordinator can create an MDT meeting.
     """
@@ -213,7 +205,7 @@ async def test_create_meeting_as_coordinator(client, override_current_user_coord
 
 
 @pytest.mark.asyncio
-async def test_create_meeting_as_user_fails_for_mdt(client, override_current_user_normal):
+async def test_create_meeting_as_user_fails_for_mdt(async_client: AsyncClient, override_current_user_normal):
     """
     Test normal users cannot create MDT meetings.
     """
@@ -228,7 +220,7 @@ async def test_create_meeting_as_user_fails_for_mdt(client, override_current_use
 
 
 @pytest.mark.asyncio
-async def test_add_patient_to_meeting_as_coordinator(client, override_current_user_coord, db_session):
+async def test_add_patient_to_meeting_as_coordinator(async_client: AsyncClient, override_current_user_coord, db_session):
     """
     Test that a coordinator can add patients to a meeting.
     """
@@ -248,7 +240,7 @@ async def test_add_patient_to_meeting_as_coordinator(client, override_current_us
 
 
 @pytest.mark.asyncio
-async def test_upload_supporting_file(client, override_current_user_coord, db_session):
+async def test_upload_supporting_file(async_client: AsyncClient, override_current_user_coord, db_session):
     """
     Test that a coordinator can upload a file to a meeting.
     """
@@ -277,7 +269,7 @@ async def test_upload_supporting_file(client, override_current_user_coord, db_se
 
 
 @pytest.mark.asyncio
-async def test_download_file_requires_participant(client, override_current_user_coord, db_session):
+async def test_download_file_requires_participant(async_client: AsyncClient, override_current_user_coord, db_session):
     """
     Test that only participants can download uploaded files.
     """

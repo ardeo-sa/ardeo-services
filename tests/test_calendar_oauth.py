@@ -25,6 +25,7 @@ def test_microsoft_oauth_redirect(client):
     assert response.status_code in (302, 307)
     assert "login.microsoftonline.com" in response.headers["location"]
 
+
 @pytest.mark.asyncio
 @patch("app.calendar.api.calendar_oauth.Flow.fetch_token")
 @patch("app.calendar.api.calendar_oauth.save_calendar_token")

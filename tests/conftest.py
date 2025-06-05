@@ -38,6 +38,14 @@ async def override_get_db():
 app.dependency_overrides[get_services_db] = override_get_db
 
 
+@pytest.fixture
+def client():
+    """
+    Synchronous test client for use in non-async test functions.
+    """
+    return TestClient(app)
+
+
 @pytest.fixture(autouse=True)
 def mock_env_vars(monkeypatch):
     # Mock DB URI
@@ -152,5 +160,4 @@ async def override_current_user_normal(normal_user):
 @pytest.fixture
 async def override_current_user_coord(coordinator_user):
     app.dependency_overrides[get_current_user] = override_user(coordinator_user)
-
 

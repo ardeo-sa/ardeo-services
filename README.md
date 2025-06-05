@@ -107,5 +107,4 @@ app = FastAPI(
     version="1.0.0",
     description="Backend for meeting scheduling, MDT workflow, and patient management."
 )
-
 ```
