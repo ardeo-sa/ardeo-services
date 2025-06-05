@@ -1,5 +1,17 @@
+"""
+SQLAlchemy model for the `User` entity.
+
+Defines the database representation of users in the system,
+including their email, name, and role. The `role` field uses
+an enumerated type defined in the user schemas to distinguish
+between roles like 'user', 'admin', and 'coordinator'.
+"""
 from sqlalchemy import Enum as SQLAlchemyEnum
+from sqlalchemy import Column, Integer, String
+
 from ..schemas.user import UserRole
+from app.database.services import Base
+
 
 class User(Base):
     """

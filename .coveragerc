@@ -1,0 +1,4 @@
+[run]
+omit =
+    tests/*
+    app/database/services.py

@@ -9,3 +9,7 @@ python-dotenv
 typing-extensions
 pytest
 httpx
+requests
+google-auth-oauthlib
+google-api-python-client
+aiosqlite
