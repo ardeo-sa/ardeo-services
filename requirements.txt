@@ -11,6 +11,7 @@ typing-extensions
 pytest
 httpx
 pytest-asyncio
+
 pytest-cov
 factory_boy
 faker

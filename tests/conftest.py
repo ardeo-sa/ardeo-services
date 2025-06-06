@@ -6,13 +6,20 @@ Overrides FastAPI dependencies to inject test database sessions.
 """
 import pytest
 import asyncio
+import httpx
 from httpx import AsyncClient
+from httpx import ASGITransport
+import pytest_asyncio
+from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from fastapi.testclient import TestClient
 
+
+
+from user_factory import UserFactory
 from app.main import app
 from app.database.services import get_services_db, Base
 from app.users.models.user import User
@@ -76,7 +83,7 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(scope="session", autouse=True)
 async def db_engine():
     """
     Create DB schema once for all tests.
@@ -87,8 +94,8 @@ async def db_engine():
     yield engine
 
 
-@pytest.fixture
-async def db_session(db_engine):
+@pytest_asyncio.fixture
+async def db_session(db_engine) -> AsyncSession:
     """
     Creates a new session for each test.
     """
@@ -96,7 +103,7 @@ async def db_session(db_engine):
         yield session
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_client(db_session):
     """
     Returns an HTTPX AsyncClient with test overrides.
@@ -105,35 +112,52 @@ async def async_client(db_session):
         yield db_session
     app.dependency_overrides[get_services_db] = override_db
 
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+    # async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
 
 
-@pytest.fixture
-async def normal_user(db_session):
+@pytest_asyncio.fixture
+async def normal_user(db_session, user_factory):
     """
     Create a normal user for testing.
     """
-    user = User(id=1, email="user@example.com", role="user")
+    user = user_factory(
+        email=f"user_{uuid4().hex[:8]}@example.com",
+        role="user",
+        name="Normal John"
+    )
     db_session.add(user)
-    await db_session.commit()
+    try:
+        await db_session.commit()
+    except Exception as e:
+        print(f"❌ Commit failed for coordinator_user: {e}")
+        raise
     return user
 
 
-@pytest.fixture
-async def coordinator_user(db_session):
+@pytest_asyncio.fixture
+async def coordinator_user(db_session, user_factory):
     """Create a coordinator user."""
-    user = User(id=2, email="coord@example.com", role="coordinator")
+    user = user_factory(
+        email=f"coord_{uuid4().hex[:8]}@example.com",
+        role="coordinator",
+        name="Jerry the Coordinator"
+    )
     db_session.add(user)
-    await db_session.commit()
+    try:
+        await db_session.commit()
+    except Exception as e:
+        print(f"❌ Commit failed for coordinator_user: {e}")
+        raise
     return user
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def mock_meeting(db_session, coordinator_user):
     """Create a sample meeting for testing."""
     meeting = Meeting(
-        id=1,
         title="MDT Session",
         type="mdt",
         created_by=coordinator_user.id
@@ -149,15 +173,28 @@ def override_user(user):
     return _override
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def override_current_user_normal(normal_user):
     """
     Override FastAPI dependency to use a normal user.
     """
     app.dependency_overrides[get_current_user] = override_user(normal_user)
+    yield
+    app.dependency_overrides[get_current_user] = get_current_user
+
+
+@pytest_asyncio.fixture
+async def override_current_user_coord(coordinator_user):
+    app.dependency_overrides[get_current_user] = override_user(coordinator_user)
+    yield
+    app.dependency_overrides[get_current_user] = get_current_user
 
 
 @pytest.fixture
-async def override_current_user_coord(coordinator_user):
-    app.dependency_overrides[get_current_user] = override_user(coordinator_user)
+def user_factory(db_session):
+    UserFactory._meta.sqlalchemy_session = db_session
 
+    def factory(**kwargs):
+        return UserFactory(**kwargs)
+
+    return factory

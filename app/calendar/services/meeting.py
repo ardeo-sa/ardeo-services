@@ -5,8 +5,9 @@ Business logic for meeting operations like creation, participant and subject add
 from typing import List, Optional
 from datetime import datetime
 
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends, HTTPException
 
 from app.calendar.models.meeting import Meeting, MeetingNote, MeetingParticipant, MeetingPatient
@@ -16,7 +17,7 @@ from app.patients.models.patient import Patient
 from app.database.services import get_services_db
 
 
-def create_meeting(meeting_data: MeetingCreate, db: Session = Depends(get_services_db)):
+async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends(get_services_db)):
     """
     Create and persist a new meeting with participants and patients (if MDT).
 
@@ -35,7 +36,7 @@ def create_meeting(meeting_data: MeetingCreate, db: Session = Depends(get_servic
         locked=False,
     )
     db.add(new_meeting)
-    db.flush()
+    await db.flush()
 
     for user_id in meeting_data.participants:
         db.add(MeetingParticipant(meeting_id=new_meeting.id, user_id=user_id))
@@ -44,11 +45,13 @@ def create_meeting(meeting_data: MeetingCreate, db: Session = Depends(get_servic
         for pid in meeting_data.patient_ids:
             db.add(MeetingPatient(meeting_id=new_meeting.id, patient_id=pid))
 
-    db.commit()
-    db.refresh(new_meeting)
+    await db.commit()
+    await db.refresh(new_meeting)
+
+    print(f"Meeting created with id: {new_meeting.id}, title: {new_meeting.title}")
     return new_meeting
 
-def get_meeting(meeting_id: int, db: Session):
+async def get_meeting(meeting_id: int, db: Session):
     """
     Retrieve a meeting with its full data by ID.
 
@@ -59,9 +62,12 @@ def get_meeting(meeting_id: int, db: Session):
     Returns:
         Meeting | None: Meeting if found, otherwise None.
     """
-    return db.query(Meeting).filter(Meeting.id == meeting_id).first()
 
-def add_patients_to_meeting(meeting_id: int, patient_ids: List[int], db: Session):
+    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    meeting = result.scalar_one_or_none()
+    return meeting
+
+async def add_patients_to_meeting(meeting_id: int, patient_ids: List[int], db: AsyncSession):
     """
         Add one or more patients to the specified MDT meeting.
 
@@ -76,7 +82,8 @@ def add_patients_to_meeting(meeting_id: int, patient_ids: List[int], db: Session
         Raises:
             HTTPException: If the meeting is not found or is not an MDT.
     """
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    meeting = result.scalar_one_or_none()
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
     if meeting.type != MeetingType.mdt:
@@ -84,13 +91,16 @@ def add_patients_to_meeting(meeting_id: int, patient_ids: List[int], db: Session
     if meeting.locked:
         raise HTTPException(status_code=403, detail="Meeting is locked. Cannot add patients.")
 
-    patients = db.query(Patient).filter(Patient.id.in_(patient_ids)).all()
+    stmt = select(Patient).where(Patient.id.in_(patient_ids))
+    result = await db.execute(stmt)
+    patients = result.scalars().all()
+
     meeting.patients.extend(p for p in patients if p not in meeting.patients)
-    db.commit()
-    db.refresh(meeting)
+    await db.commit()
+    await db.refresh(meeting)
     return meeting
 
-def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: User, db: Session):
+async def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: User, db: AsyncSession):
     """
         Add a structured note to an MDT meeting.
 
@@ -106,7 +116,9 @@ def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: User, 
         Raises:
             HTTPException: If the meeting is not found, user not a participant, or meeting is locked.
     """
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    meeting = result.scalar_one_or_none()
+
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
@@ -123,7 +135,7 @@ def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: User, 
         content=note_data.content,
     )
     db.add(note)
-    db.commit()
-    db.refresh(note)
+    await db.commit()
+    await db.refresh(note)
 
     return note
