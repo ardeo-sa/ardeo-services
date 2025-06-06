@@ -8,6 +8,7 @@ from datetime import datetime
 from sqlalchemy import or_, and_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from fastapi import Depends, HTTPException
 
 from app.calendar.models.meeting import Meeting, MeetingNote, MeetingParticipant, MeetingPatient
@@ -116,13 +117,17 @@ async def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: 
         Raises:
             HTTPException: If the meeting is not found, user not a participant, or meeting is locked.
     """
-    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    result = await db.execute(
+        select(Meeting)
+        .options(selectinload(Meeting.participants).selectinload(MeetingParticipant.user))
+        .filter_by(id=meeting_id)
+    )
     meeting = result.scalar_one_or_none()
 
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
-    if user not in meeting.participants:
+    if not any(p.user_id == user.id for p in meeting.participants):
         raise HTTPException(status_code=403, detail="Only participants can add notes")
 
     if meeting.locked:

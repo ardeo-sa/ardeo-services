@@ -30,3 +30,5 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan"
     )
+
+    meeting_links = relationship("MeetingParticipant", back_populates="user")

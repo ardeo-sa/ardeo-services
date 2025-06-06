@@ -140,7 +140,7 @@ async def add_note_to_meeting(
         action="add_note",
         object_type="note",
         object_id=meeting_note.id,
-        metadata={"type": note.type}
+        meta={"type": note.type}
     )
     return meeting_note
 

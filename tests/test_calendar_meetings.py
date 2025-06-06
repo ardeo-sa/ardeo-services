@@ -5,15 +5,16 @@ Includes tests for meeting creation, listing, retrieval, note editing, adding pa
 and permission validation for locking and audit logging.
 """
 import pytest
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
-from datetime import datetime, timedelta
 
-
+from app.calendar.models.meeting import Meeting, MeetingParticipant
 from app.calendar.schemas.meeting import MeetingCreate, MeetingNoteCreate, MeetingType, MeetingNoteType
 from app.users.models.user import User
 from app.core.dependencies import get_current_user
 from app.main import app
-
 
 @pytest.mark.asyncio
 async def test_create_regular_meeting(async_client: AsyncClient, normal_user):
@@ -28,9 +29,11 @@ async def test_create_regular_meeting(async_client: AsyncClient, normal_user):
         "type": MeetingType.regular.value,
         "start_time": "2025-01-01T10:00:00Z",
         "end_time": "2025-01-01T11:00:00Z",
-        "participants": [normal_user.id],
         "locked": False
     }
+
+    participant_link = MeetingParticipant(user_id=normal_user.id)
+    meeting_data.participants.append(participant_link)
 
     response = await async_client.post("/api/calendar/meetings/", json=meeting_data)
     print(response.status_code, response.text)
@@ -100,21 +103,35 @@ async def test_create_mdt_meeting_requires_coordinator_role(async_client: AsyncC
 
 
 @pytest.mark.asyncio
-async def test_add_note_to_meeting(async_client: AsyncClient, normal_user):
+async def test_add_note_to_meeting(async_client: AsyncClient, normal_user, db_session: AsyncSession):
     """
     Test adding a note to a meeting.
     """
     app.dependency_overrides[get_current_user] = lambda: normal_user
 
+    normal_user = await db_session.merge(normal_user)
+
     # Prepare meeting and user fixtures (mock or create them)
-    meeting_id = 1  # Assuming a meeting with ID 1 exists
+    meeting = Meeting(
+        title="Test Meeting",
+        type=MeetingType.mdt.value,
+        start_time=datetime.now(timezone.utc),
+        end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+        participants=[
+            MeetingParticipant(user=normal_user)
+        ],
+        locked=False
+    )
+    db_session.add(meeting)
+    await db_session.commit()
+    await db_session.refresh(meeting)
 
     note_data = {
         "type": MeetingNoteType.recommendation.value,
         "content": "This is a test recommendation note."
     }
 
-    response = await async_client.post(f"/api/calendar/meetings/{meeting_id}/notes", json=note_data)
+    response = await async_client.post(f"/api/calendar/meetings/{meeting.id}/notes", json=note_data)
 
     assert response.status_code == 200
     note = response.json()
