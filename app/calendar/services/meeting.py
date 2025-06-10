@@ -12,7 +12,8 @@ from sqlalchemy.orm import selectinload
 from fastapi import Depends, HTTPException
 
 from app.calendar.models.meeting import Meeting, MeetingNote, MeetingParticipant, MeetingPatient
-from app.calendar.schemas.meeting import MeetingCreate, MeetingNoteCreate, MeetingNoteType, MeetingType
+from app.calendar.schemas.meeting import (MeetingCreate, MeetingNoteCreate, MeetingNoteType,
+                                          MeetingType, MeetingDetail, MeetingNoteResponse)
 from app.users.models.user import User
 from app.patients.models.patient import Patient
 from app.database.services import get_services_db
@@ -52,21 +53,65 @@ async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends
     print(f"Meeting created with id: {new_meeting.id}, title: {new_meeting.title}")
     return new_meeting
 
-async def get_meeting(meeting_id: int, db: Session):
+
+async def get_meeting(meeting_id: int, db: AsyncSession, current_user: User) -> Meeting:
     """
-    Retrieve a meeting with its full data by ID.
-
-    Args:
-        meeting_id (int): Unique meeting identifier.
-        db (Session): Database session.
-
-    Returns:
-        Meeting | None: Meeting if found, otherwise None.
+    Securely retrieve a meeting with full details, enforcing access control.
     """
 
-    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    # First check access permission using a lightweight query
+    result = await db.execute(
+        select(Meeting)
+        .options(selectinload(Meeting.participants))
+        .where(Meeting.id == meeting_id)
+    )
     meeting = result.scalar_one_or_none()
-    return meeting
+
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found.")
+
+    if current_user.role not in ("admin", "coordinator") and \
+            current_user.id not in [p.user_id for p in meeting.participants]:
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    # Fetch full meeting if checks passed
+    result = await db.execute(
+        select(Meeting)
+        .filter_by(id=meeting_id)
+        .options(
+            selectinload(Meeting.participants).selectinload(MeetingParticipant.user),
+            selectinload(Meeting.notes).selectinload(MeetingNote.author),
+            selectinload(Meeting.meeting_patients).selectinload(MeetingPatient.patient),
+            selectinload(Meeting.patients),
+            selectinload(Meeting.supporting_files),
+        )
+    )
+
+    meeting = result.scalar_one_or_none()
+    if meeting is None:
+        raise HTTPException(status_code=404, detail="Meeting not found.")
+
+    return MeetingDetail(
+        id=meeting.id,
+        title=meeting.title,
+        type=meeting.type,
+        start_time=meeting.start_time,
+        end_time=meeting.end_time,
+        participants=[p.user_id for p in meeting.participants],
+        notes=[
+            MeetingNoteResponse(
+                id=n.id,
+                meeting_id=n.meeting_id,
+                author_id=n.author_id,
+                type=n.type,
+                content=n.content,
+                created_at=n.created_at
+            )
+            for n in meeting.notes
+        ],
+        locked=meeting.locked
+    )
+
 
 async def add_patients_to_meeting(meeting_id: int, patient_ids: List[int], db: AsyncSession):
     """
@@ -83,8 +128,14 @@ async def add_patients_to_meeting(meeting_id: int, patient_ids: List[int], db: A
         Raises:
             HTTPException: If the meeting is not found or is not an MDT.
     """
-    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    result = await db.execute(
+        select(Meeting)
+        .where(Meeting.id == meeting_id)
+        .options(selectinload(Meeting.patients))
+    )
     meeting = result.scalar_one_or_none()
+
+
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
     if meeting.type != MeetingType.mdt:
@@ -100,6 +151,7 @@ async def add_patients_to_meeting(meeting_id: int, patient_ids: List[int], db: A
     await db.commit()
     await db.refresh(meeting)
     return meeting
+
 
 async def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: User, db: AsyncSession):
     """
@@ -144,3 +196,56 @@ async def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: 
     await db.refresh(note)
 
     return note
+
+
+async def list_meetings(
+    db: AsyncSession,
+    skip: int,
+    limit: int,
+    search: Optional[str],
+    start_date: Optional[datetime],
+    end_date: Optional[datetime]
+) -> List[Meeting]:
+    """
+    Retrieve a paginated and optionally filtered list of meetings.
+
+    Args:
+        db (AsyncSession): Database session for executing queries.
+        skip (int): Number of records to skip (used for pagination).
+        limit (int): Maximum number of records to return (pagination size).
+        search (Optional[str]): Search keyword for filtering by title or meeting type.
+        start_date (Optional[datetime]): Filter to include only meetings starting on or after this date.
+        end_date (Optional[datetime]): Filter to include only meetings ending on or before this date.
+
+    Returns:
+        List[Meeting]: A list of meetings matching the provided filters.
+    """
+    stmt = select(Meeting).options(
+        selectinload(Meeting.participants).selectinload(MeetingParticipant.user),
+        selectinload(Meeting.meeting_patients).selectinload(MeetingPatient.patient)
+    )
+
+    # Dynamic filters
+    filters = []
+
+    if search:
+        filters.append(
+            or_(
+                Meeting.title.ilike(f"%{search}%"),
+                Meeting.type.ilike(f"%{search}%")
+            )
+        )
+
+    if start_date:
+        filters.append(Meeting.start_time >= start_date)
+
+    if end_date:
+        filters.append(Meeting.end_time <= end_date)
+
+    if filters:
+        stmt = stmt.where(and_(*filters))
+
+    stmt = stmt.order_by(Meeting.start_time.desc()).offset(skip).limit(limit)
+
+    result = await db.execute(stmt)
+    return result.scalars().unique().all()

@@ -77,12 +77,10 @@ async def get_meeting(
     """
     Retrieve details of a specific meeting by ID.
     """
-    meeting = await services.get_meeting(meeting_id, db)
-    if current_user.role not in ("admin", "coordinator") and current_user.id not in [p.id for p in
-                                                                                     meeting.participants]:
-        raise HTTPException(status_code=403, detail="Access denied.")
+    # if current_user.role not in ("admin", "coordinator"):
+    #     raise HTTPException(status_code=403, detail="Access denied.")
 
-    return meeting
+    return await services.get_meeting(meeting_id, db, current_user)
 
 
 @router.post("/{meeting_id}/patients", response_model=MeetingResponse)
