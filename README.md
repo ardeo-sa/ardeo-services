@@ -9,34 +9,6 @@ This is a FastAPI-based backend service for Ardeo web application. It provides f
 - Persisting all meeting data for future browsing and auditing
 - Swagger/OpenAPI integration for API testing
 
-
-## Project Structure
-
-- `app/` - Main application code
-  - `core/` - Common utilities and config (e.g., DB, auth)
-  - `calendar/` - All calendar, meeting, and sync logic
-  - `users/` - User management
-  - `patients/` - Patient data models and logic
-  - `api/` - Route entry points
-- `tests/` - Unit and integration tests
-
-## Setup
-
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-2. Run the FastAPI app:
-```bash
-uvicorn app.main:app --reload
-```
-
-3. Running Tests
-```bash
-pytest tests/
-```
-
 ## Current API Features
 
 ### Create a Meeting
@@ -72,6 +44,67 @@ pytest tests/
 - Postgres - data recorded in a service data base
 - Uvicorn – ASGI server for development
 
-## Notes
+
+## Project Structure
+
+- `app/` - Main application code
+  - `core/` - Common utilities and config (e.g., DB, auth)
+  - `calendar/` - All calendar, meeting, and sync logic
+  - `users/` - User management
+  - `patients/` - Patient data models and logic
+  - `api/` - Route entry points
+- `tests/` - Unit and integration tests
+
+### Notes
 - Google/Outlook sync is handled in `calendar/services/`
 - Background jobs (e.g. reminders) go in `calendar/tasks/`
+
+
+## Setup
+
+1. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Run the FastAPI app:
+```bash
+uvicorn app.main:app --reload
+```
+
+3. Running Tests
+```bash
+pytest tests/
+```
+
+
+## API Documentation
+The FastAPI backend provides automatic, interactive API documentation using the OpenAPI standard. 
+This makes it easy to test endpoints, understand expected payloads, and share the API with third-party 
+integrators or frontend developers.
+
+### Interactive Docs
+Once the application is running, you can explore and test all available API endpoints through the 
+following built-in UIs:
+
+- Swagger UI:
+http://localhost:8000/docs – Interactive documentation with support for live requests and token-based authentication.
+
+- ReDoc:
+http://localhost:8000/redoc – Clean, read-only reference-style documentation.
+
+These UIs are automatically generated from your FastAPI routes, response_models, and Pydantic schemas.
+
+### Customizing Docs
+- Tags: Routes are grouped by tags like Meetings, Users, or Patients to improve organization.
+- Descriptions: You can define endpoint-level and tag-level descriptions to clarify business logic.
+- Schema Examples: Pydantic models include examples for request and response payloads.
+- Metadata: You can set custom project-level metadata like title, version, and contact info in FastAPI()
+
+```python
+app = FastAPI(
+    title="Ardeo Services API",
+    version="1.0.0",
+    description="Backend for meeting scheduling, MDT workflow, and patient management."
+)
+```

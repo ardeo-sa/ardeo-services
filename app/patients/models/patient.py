@@ -57,4 +57,9 @@ class Patient(Base):
     )
 
     def __repr__(self):
+        """
+           Returns a string representation of the Patient instance for debugging purposes.
+
+           Includes the patient ID and full name.
+        """
         return f"<Patient(id={self.id}, name='{self.first_name} {self.last_name}')>"

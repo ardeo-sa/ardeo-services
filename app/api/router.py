@@ -5,4 +5,4 @@ from fastapi import APIRouter
 from app.calendar.api.router import router as calendar_router
 
 router = APIRouter()
-router.include_router(calendar_router, prefix="/calendar", tags=["Calendar"])
+router.include_router(calendar_router, prefix="/api/calendar", tags=["Calendar"])
