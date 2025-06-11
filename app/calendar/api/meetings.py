@@ -11,8 +11,9 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from fastapi.responses import FileResponse
 from fastapi import File, UploadFile
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+
 
 MAX_FILE_SIZE_MB = 100
 UPLOAD_DIR = "/tmp/uploads"
@@ -291,7 +292,7 @@ async def upload_supporting_file(
         action="upload_file",
         object_type="file",
         object_id=file_record.id,
-        metadata={"filename": file.filename, "size": file_record.file_size}
+        meta={"filename": file.filename, "size": file_record.file_size}
     )
 
     return {
@@ -325,10 +326,14 @@ async def download_supporting_file(
     Returns:
         FileResponse: The binary file to download.
     """
-    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    result = await db.execute(
+        select(Meeting)
+        .options(selectinload(Meeting.participants))
+        .where(Meeting.id == meeting_id)
+    )
     meeting = result.scalar_one_or_none()
 
-    if not meeting:
+    if meeting is None:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
     if current_user.id not in [p.id for p in meeting.participants]:

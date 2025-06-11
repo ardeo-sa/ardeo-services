@@ -17,8 +17,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from fastapi.testclient import TestClient
 
-
-
 from user_factory import UserFactory
 from app.main import app
 from app.database.services import get_services_db, Base
@@ -198,3 +196,10 @@ def user_factory(db_session):
         return UserFactory(**kwargs)
 
     return factory
+
+
+@pytest.fixture
+def override_user_dependency(normal_user):
+    app.dependency_overrides[get_current_user] = lambda: normal_user
+    yield
+    app.dependency_overrides.clear()
