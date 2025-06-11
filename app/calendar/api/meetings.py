@@ -1,12 +1,17 @@
 """
 Endpoints for managing calendar meetings, including regular and MDT meetings.
 """
-from fastapi import APIRouter
+from uuid import uuid4
+import os
+from typing import List, Optional
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
-from typing import List
+from fastapi import File, UploadFile
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.calendar.schemas.meeting import (
     MeetingCreate,
@@ -25,12 +30,17 @@ from app.calendar.services.audit import log_meeting_action
 from app.users.models.user import User
 from app.calendar.schemas.meeting import MeetingNoteUpdate
 
+MAX_FILE_SIZE_MB = 100
+UPLOAD_DIR = "/tmp/uploads"
+
+
 router = APIRouter()
 
+
 @router.post("/", response_model=MeetingResponse)
-def create_meeting(
+async def create_meeting(
     meeting: MeetingCreate,
-    db: Session = Depends(get_services_db),
+    db: AsyncSession = Depends(get_services_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -41,7 +51,7 @@ def create_meeting(
 
     Args:
         meeting (MeetingCreate): Payload containing meeting details.
-        db (Session): SQLAlchemy DB session.
+        db (AsyncSession): SQLAlchemy DB async session.
         current_user (User): Authenticated user from token.
 
     Returns:
@@ -54,23 +64,30 @@ def create_meeting(
     if meeting.type == MeetingType.mdt:
         require_role("coordinator")(current_user)
 
-    return services.create_meeting(meeting, db)
+    return await services.create_meeting(meeting, db)
 
 
 @router.get("/{meeting_id}", response_model=MeetingDetail)
-def get_meeting(meeting_id: int, db: Session = Depends(get_services_db)):
+async def get_meeting(
+    meeting_id: int,
+    db: AsyncSession = Depends(get_services_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Retrieve details of a specific meeting by ID.
     """
-    return services.get_meeting(meeting_id, db)
+    # if current_user.role not in ("admin", "coordinator"):
+    #     raise HTTPException(status_code=403, detail="Access denied.")
+
+    return await services.get_meeting(meeting_id, db, current_user)
 
 
 @router.post("/{meeting_id}/patients", response_model=MeetingResponse)
-def add_patient_to_meeting(
+async def add_patient_to_meeting(
     meeting_id: int,
     patient_ids: List[int] = Body(...),
-    db: Session = Depends(get_services_db),
-    current_user: User = Depends(require_role("coordinator")),
+    db: AsyncSession = Depends(get_services_db),
+    current_user: User = Depends(require_role("coordinator")), # noqa: F841
 ):
     """
     Add one or more patients to an MDT meeting.
@@ -86,14 +103,14 @@ def add_patient_to_meeting(
     Returns:
         MeetingResponse: The updated meeting object including new patients.
     """
-    return services.add_patients_to_meeting(meeting_id, patient_ids, db)
+    return await services.add_patients_to_meeting(meeting_id, patient_ids, db)
 
 
 @router.post("/{meeting_id}/notes", response_model=MeetingNoteResponse)
-def add_note_to_meeting(
+async def add_note_to_meeting(
     meeting_id: int,
     note: MeetingNoteCreate,
-    db: Session = Depends(get_services_db),
+    db: AsyncSession = Depends(get_services_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -110,24 +127,27 @@ def add_note_to_meeting(
     Returns:
         MeetingNoteResponse: The saved note entry.
     """
+
+    meeting_note = await services.add_meeting_note(meeting_id, note, current_user, db)
+
     log_meeting_action(
         db=db,
         user=current_user,
         meeting_id=meeting_id,
         action="add_note",
         object_type="note",
-        object_id=note.id,
-        metadata={"type": note.type}
+        object_id=meeting_note.id,
+        meta={"type": note.type}
     )
-    return services.add_meeting_note(meeting_id, note, current_user, db)
+    return meeting_note
 
 
 @router.put("/{meeting_id}/notes/{note_id}", response_model=MeetingNoteResponse)
-def edit_note_to_meeting(
+async def edit_note_to_meeting(
     meeting_id: int,
     note_id: int,
     note: MeetingNoteUpdate,
-    db: Session = Depends(get_services_db),
+    db: AsyncSession = Depends(get_services_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -136,13 +156,16 @@ def edit_note_to_meeting(
     Only the original author may edit their note.
     Locked meetings do not allow edits.
     """
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    meeting = result.scalar_one_or_none()
+
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
     if meeting.locked:
         raise HTTPException(status_code=403, detail="Meeting is locked. Notes cannot be edited.")
 
-    note_obj = db.query(MeetingNote).filter_by(id=note_id, meeting_id=meeting_id).first()
+    result = await db.execute(select(MeetingNote).filter_by(id=note_id, meeting_id=meeting_id))
+    note_obj = result.scalar_one_or_none()
     if not note_obj:
         raise HTTPException(status_code=404, detail="Note not found")
 
@@ -151,15 +174,15 @@ def edit_note_to_meeting(
 
     note_obj.type = note.type
     note_obj.content = note.content
-    db.commit()
-    db.refresh(note_obj)
-    return note_obj
+    await db.commit()
+    await db.refresh(note_obj)
+    return MeetingNoteResponse.from_orm(note_obj)
 
 
 @router.post("/{meeting_id}/lock")
-def lock_meeting(
+async def lock_meeting(
     meeting_id: int,
-    db: Session = Depends(get_services_db),
+    db: AsyncSession = Depends(get_services_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -175,7 +198,9 @@ def lock_meeting(
     Returns:
         dict: Confirmation message upon successful lock.
     """
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    meeting = result.scalar_one_or_none()
+
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
@@ -183,7 +208,7 @@ def lock_meeting(
         raise HTTPException(status_code=403, detail="Only coordinators or admins can lock meetings")
 
     meeting.locked = True
-    db.commit()
+    await db.commit()
     log_meeting_action(
         db=db,
         user=current_user,
@@ -196,11 +221,11 @@ def lock_meeting(
 
 
 @router.post("/{meeting_id}/files", response_model=dict)
-def upload_supporting_file(
+async def upload_supporting_file(
     meeting_id: int,
     file: UploadFile = File(...),
-    db: Session = Depends(get_services_db),
-    current_user=Depends(require_role("coordinator", "admin")),
+    db: AsyncSession = Depends(get_services_db),
+    current_user = Depends(require_role("coordinator", "admin")),
 ):
     """
     Upload a supporting file for an MDT meeting.
@@ -217,12 +242,9 @@ def upload_supporting_file(
     Returns:
         dict: Confirmation and file metadata.
     """
-    # Validate file size (read into memory buffer to check)
-    contents = file.file.read()
-    if len(contents) > MAX_FILE_SIZE_MB * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
+    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    meeting = result.scalar_one_or_none()
 
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     # Check if meeting exists
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
@@ -231,25 +253,35 @@ def upload_supporting_file(
         raise HTTPException(status_code=403, detail="Meeting is locked. Uploads are not allowed.")
 
     # Generate unique file path and save file
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     filename = f"{uuid4()}_{file.filename}"
     filepath = os.path.join(UPLOAD_DIR, filename)
-    with open(filepath, "wb") as f:
-        f.write(contents)
+
+    # Stream file to disk and check size
+    max_size_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
+    total_size = 0
+    with open(filepath, "wb") as out_file:
+        while chunk := file.file.read(1024 * 1024):  # 1MB chunks
+            total_size += len(chunk)
+            if total_size > max_size_bytes:
+                out_file.close()
+                os.remove(filepath)
+                raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
+            out_file.write(chunk)
 
     # Create DB record
     file_record = SupportingFile(
         meeting_id=meeting_id,
         name=file.filename,
         path=filepath,
-        file_size=len(contents),
+        file_size=total_size,
         mime_type=file.content_type,
         is_encrypted=False,
         encryption_method=None,
     )
-
     db.add(file_record)
-    db.commit()
-    db.refresh(file_record)
+    await db.commit()
+    await db.refresh(file_record)
 
     log_meeting_action(
         db=db,
@@ -258,7 +290,7 @@ def upload_supporting_file(
         action="upload_file",
         object_type="file",
         object_id=file_record.id,
-        metadata={"filename": file.filename, "size": file_record.file_size}
+        meta={"filename": file.filename, "size": file_record.file_size}
     )
 
     return {
@@ -272,10 +304,10 @@ def upload_supporting_file(
 
 
 @router.get("/{meeting_id}/files/{file_id}", response_class=FileResponse)
-def download_supporting_file(
+async def download_supporting_file(
     meeting_id: int,
     file_id: int,
-    db: Session = Depends(get_services_db),
+    db: AsyncSession = Depends(get_services_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -292,14 +324,21 @@ def download_supporting_file(
     Returns:
         FileResponse: The binary file to download.
     """
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
-    if not meeting:
+    result = await db.execute(
+        select(Meeting)
+        .options(selectinload(Meeting.participants))
+        .where(Meeting.id == meeting_id)
+    )
+    meeting = result.scalar_one_or_none()
+
+    if meeting is None:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
-    if current_user not in meeting.participants:
+    if current_user.id not in [p.id for p in meeting.participants]:
         raise HTTPException(status_code=403, detail="Access denied:: Only participants can download files")
 
-    file = db.query(SupportingFile).filter_by(id=file_id, meeting_id=meeting_id).first()
+    result = await db.execute(select(SupportingFile).filter_by(id=file_id, meeting_id=meeting_id))
+    file = result.scalar_one_or_none()
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -307,8 +346,8 @@ def download_supporting_file(
 
 
 @router.get("/", response_model=List[MeetingResponse])
-def list_meetings(
-    db: Session = Depends(get_services_db),
+async def list_meetings(
+    db: AsyncSession = Depends(get_services_db),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(10, le=100, description="Max number of records to return"),
     search: Optional[str] = Query(None, description="Search term to filter by title or type"),
@@ -329,7 +368,7 @@ def list_meetings(
     Returns:
         List[MeetingResponse]: A list of meetings.
     """
-    return services.list_meetings(
+    return await services.list_meetings(
         db=db,
         skip=skip,
         limit=limit,
@@ -339,9 +378,9 @@ def list_meetings(
     )
 
 @router.get("/{meeting_id}/audit", response_model=List[dict])
-def get_meeting_audit_log(
+async def get_meeting_audit_log(
     meeting_id: int,
-    db: Session = Depends(get_services_db),
+    db: AsyncSession = Depends(get_services_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -350,12 +389,15 @@ def get_meeting_audit_log(
     if current_user.role not in ("coordinator", "admin"):
         raise HTTPException(status_code=403, detail="Access denied")
 
-    logs = (
-        db.query(MeetingAuditLog)
+    stmt = (
+        select(MeetingAuditLog)
         .filter_by(meeting_id=meeting_id)
         .order_by(MeetingAuditLog.timestamp.desc())
-        .all()
     )
+
+    result = await db.execute(stmt)
+    logs = result.scalars().all()
+
     return [
         {
             "user_id": log.user_id,

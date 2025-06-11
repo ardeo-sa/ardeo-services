@@ -1,9 +1,34 @@
-import requests
+"""
+This module provides API routes to handle OAuth2 authentication flows for
+Google Calendar and Microsoft Outlook Calendar integrations.
+
+It enables users to:
+- Start the OAuth flow for Google and Microsoft calendars
+- Handle callbacks and securely exchange authorization codes for access tokens
+- Persist calendar tokens in the database for future authenticated requests
+
+Routes:
+- GET /google: Redirects user to Google's OAuth2 consent screen
+- GET /google/callback: Handles Google's redirect with auth code, exchanges for tokens
+- GET /microsoft: Redirects user to Microsoft's OAuth2 consent screen
+- GET /microsoft/callback: Handles Microsoft's redirect with auth code, exchanges for tokens
+
+These endpoints support calendar sync functionality, allowing the app to create
+or manage events on behalf of authenticated users.
+
+Dependencies:
+- FastAPI for routing and dependency injection
+- google-auth-oauthlib for managing Google OAuth2 flow
+- Microsoft OAuth handled via direct POST to the token endpoint
+"""
 import uuid
+
+import requests
 from fastapi import APIRouter, Request, Depends, HTTPException
 from starlette.responses import RedirectResponse
+from sqlalchemy.orm import Session
 from google_auth_oauthlib.flow import Flow
-from google.oauth2.credentials import Credentials
+# from google.oauth2.credentials import Credentials
 
 from app.config import (
     GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI,
@@ -14,13 +39,12 @@ from app.calendar.schemas.oauth import OAuthTokenResponse
 from app.core.dependencies import get_current_user
 from app.database.services import get_services_db
 from app.users.models.user import User
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/calendar/oauth", tags=["Calendar OAuth"])
 
 
 @router.get("/google")
-def start_google_oauth(request: Request):
+def start_google_oauth():
     """
     Initiate OAuth2 flow for Google Calendar.
 
@@ -131,7 +155,7 @@ def microsoft_callback(
         "client_secret": MS_CLIENT_SECRET,
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    response = requests.post(token_url, data=data, headers=headers)
+    response = requests.post(token_url, data=data, headers=headers, timeout=15)
     if response.status_code != 200:
         raise HTTPException(status_code=500, detail="Failed to exchange token")
 

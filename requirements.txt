@@ -7,5 +7,17 @@ pydantic-settings
 python-multipart
 python-dotenv
 typing-extensions
+
 pytest
 httpx
+pytest-asyncio
+
+pytest-cov
+factory_boy
+faker
+requests
+
+google-auth
+google-auth-oauthlib
+google-api-python-client
+aiosqlite
