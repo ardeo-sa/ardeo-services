@@ -1,7 +1,6 @@
 """"
 Business logic for meeting operations like creation, participant and subject addition, and note management.
 """
-
 from typing import List, Optional
 from datetime import datetime
 
@@ -58,7 +57,6 @@ async def get_meeting(meeting_id: int, db: AsyncSession, current_user: User) -> 
     """
     Securely retrieve a meeting with full details, enforcing access control.
     """
-
     # First check access permission using a lightweight query
     result = await db.execute(
         select(Meeting)

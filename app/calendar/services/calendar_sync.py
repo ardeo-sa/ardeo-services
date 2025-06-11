@@ -1,6 +1,13 @@
-import requests
+"""
+Calendar synchronization module for external providers (Google and Microsoft).
+
+Provides utilities to fetch and push calendar events between the local system and
+external calendar services (Google Calendar, Microsoft Outlook Calendar) using
+OAuth tokens stored in the database.
+"""
 from datetime import datetime
 
+import requests
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from sqlalchemy.orm import Session
@@ -11,6 +18,18 @@ from app.calendar.models.meeting import Meeting, MeetingType
 from app.calendar.services.providers import google, microsoft
 
 def fetch_google_events(token_data: dict):
+    """
+        Fetches upcoming events from the user's Google Calendar.
+
+        Uses the provided OAuth token to authenticate with the Google Calendar API
+        and retrieve the next 10 upcoming events.
+
+        Args:
+            token_data (dict): Dictionary containing the user's OAuth tokens, must include 'access_token'.
+
+        Returns:
+            list: A list of event dictionaries returned by the Google Calendar API.
+    """
     credentials = Credentials(
         token=token_data["access_token"],
         refresh_token=token_data.get("refresh_token"),
@@ -32,6 +51,21 @@ def fetch_google_events(token_data: dict):
 
 
 def fetch_microsoft_events(token_data: dict):
+    """
+        Fetches upcoming events from the user's Microsoft Outlook Calendar.
+
+        Uses Microsoft Graph API to retrieve calendar events starting from the current time
+        until a fixed future date.
+
+        Args:
+            token_data (dict): Dictionary containing the user's OAuth tokens, must include 'access_token'.
+
+        Returns:
+            list: A list of event dictionaries returned by the Microsoft Graph API.
+
+        Raises:
+            Exception: If the API request fails.
+    """
     headers = {
         "Authorization": f"Bearer {token_data['access_token']}",
         "Content-Type": "application/json"
@@ -48,6 +82,22 @@ def fetch_microsoft_events(token_data: dict):
 
 
 def sync_user_calendar(user: User, db: Session):
+    """
+        Syncs events from the user's external calendar into the local database.
+
+        Determines the provider (Google or Microsoft), fetches events from their calendar,
+        and creates corresponding `Meeting` entries locally if they haven't already been synced.
+
+        Args:
+            user (User): The user whose calendar should be synced.
+            db (Session): SQLAlchemy session for database operations.
+
+        Returns:
+            list: Titles of the synced meetings.
+
+        Raises:
+            ValueError: If the user has no linked calendar token.
+    """
     token_record = (
         db.query(CalendarOAuthToken)
         .filter(CalendarOAuthToken.user_id == user.id)
@@ -76,6 +126,20 @@ def sync_user_calendar(user: User, db: Session):
 
 
 def _create_meeting_from_event(db: Session, user: User, event: dict, provider: str):
+    """
+       Converts an external calendar event into a local Meeting record.
+
+       Ensures duplicates aren't created by checking for an existing external_event_id.
+
+       Args:
+           db (Session): SQLAlchemy session for database operations.
+           user (User): The user syncing the event.
+           event (dict): Dictionary containing event data from the provider.
+           provider (str): The name of the calendar provider ('google' or 'microsoft').
+
+       Returns:
+           Meeting or None: The new Meeting object if created, otherwise None.
+    """
     external_id = event["id"]
     title = event.get("summary") or event.get("subject", "Untitled")
     start_str = event["start"].get("dateTime") or event["start"].get("date")
@@ -108,6 +172,23 @@ def _create_meeting_from_event(db: Session, user: User, event: dict, provider: s
 
 
 def push_meeting_to_external(meeting_id: int, user: User, db: Session):
+    """
+        Pushes a local meeting to the user's external calendar (Google or Microsoft).
+
+        Converts the local meeting object into the provider's expected format and uses
+        the appropriate API to create the event. Saves the external event ID after pushing.
+
+        Args:
+            meeting_id (int): ID of the meeting to push.
+            user (User): The user whose calendar will receive the event.
+            db (Session): SQLAlchemy session for database access.
+
+        Returns:
+            str: Confirmation message with the external event ID.
+
+        Raises:
+            ValueError: If the meeting or calendar token is not found, or provider is unsupported.
+    """
     meeting = db.query(Meeting).filter_by(id=meeting_id).first()
     if not meeting:
         raise ValueError("Meeting not found")

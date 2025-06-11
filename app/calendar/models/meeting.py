@@ -34,6 +34,7 @@ class Meeting(Base):
 
 
 class MeetingType(str, Enum):
+    """Possible meeting types"""
     MDT = "mdt"
     REVIEW = "review"
 

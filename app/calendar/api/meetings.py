@@ -6,18 +6,12 @@ import os
 from typing import List, Optional
 from datetime import datetime
 
-from fastapi import APIRouter
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from fastapi.responses import FileResponse
 from fastapi import File, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-
-
-MAX_FILE_SIZE_MB = 100
-UPLOAD_DIR = "/tmp/uploads"
-
 
 from app.calendar.schemas.meeting import (
     MeetingCreate,
@@ -35,6 +29,10 @@ from app.database.services import get_services_db
 from app.calendar.services.audit import log_meeting_action
 from app.users.models.user import User
 from app.calendar.schemas.meeting import MeetingNoteUpdate
+
+MAX_FILE_SIZE_MB = 100
+UPLOAD_DIR = "/tmp/uploads"
+
 
 router = APIRouter()
 
@@ -89,7 +87,7 @@ async def add_patient_to_meeting(
     meeting_id: int,
     patient_ids: List[int] = Body(...),
     db: AsyncSession = Depends(get_services_db),
-    current_user: User = Depends(require_role("coordinator")),
+    current_user: User = Depends(require_role("coordinator")), # noqa: F841
 ):
     """
     Add one or more patients to an MDT meeting.

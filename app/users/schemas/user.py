@@ -1,3 +1,4 @@
+"""Schemas for user management"""
 from enum import Enum
 
 class UserRole(str, Enum):

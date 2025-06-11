@@ -1,7 +1,6 @@
 """
 Database setup and initialization for the services database using SQLAlchemy.
 """
-
 # pylint: disable=invalid-name
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
