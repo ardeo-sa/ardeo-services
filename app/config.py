@@ -5,7 +5,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database
-SERVICES_DB_URI = os.getenv("SERVICES_DB_URI")
+services_db_user = os.getenv("SERVICES_DB_USER")
+services_db_password = os.getenv("SERVICES_DB_PASSWORD")
+services_db_host = os.getenv("SERVICES_DB_HOST")
+services_db_name = os.getenv("SERVICES_DB_NAME")
+services_db_port = os.getenv("SERVICES_DB_PORT")
+
+SERVICES_DB_URI = (
+    f"postgresql+psycopg2://{services_db_user}:{services_db_password}@{services_db_host}:{services_db_port}/{services_db_name}"
+)
 
 # Google OAuth
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")

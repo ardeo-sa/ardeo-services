@@ -9,6 +9,8 @@ Mocks external HTTP calls and validates API behavior.
 import pytest
 from unittest.mock import patch
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 def test_google_oauth_redirect(client):
     """
     Test redirect to Google OAuth consent screen.
@@ -25,10 +27,11 @@ def test_microsoft_oauth_redirect(client):
     assert response.status_code in (302, 307)
     assert "login.microsoftonline.com" in response.headers["location"]
 
+
 @pytest.mark.asyncio
 @patch("app.calendar.api.calendar_oauth.Flow.fetch_token")
 @patch("app.calendar.api.calendar_oauth.save_calendar_token")
-async def test_google_callback(mock_save_token, mock_fetch_token, async_client, db_session):
+async def test_google_callback(mock_save_token, mock_fetch_token, async_client, db_session: AsyncSession):
     """
     Test Google OAuth callback endpoint with mocked token fetching and token saving.
     """
@@ -54,7 +57,7 @@ async def test_google_callback(mock_save_token, mock_fetch_token, async_client, 
 @pytest.mark.asyncio
 @patch("requests.post")
 @patch("app.calendar.api.calendar_oauth.save_calendar_token")
-async def test_microsoft_callback(mock_save_token, mock_post, async_client, db_session):
+async def test_microsoft_callback(mock_save_token, mock_post, async_client, db_session: AsyncSession):
     """
     Test Microsoft OAuth callback endpoint with mocked HTTP POST and token saving.
     """

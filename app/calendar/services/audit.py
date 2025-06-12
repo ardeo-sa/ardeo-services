@@ -7,6 +7,7 @@ editing content, or uploading files. These logs enable accountability and
 historical tracking of user interactions with meeting records.
 """
 from sqlalchemy.orm import Session
+
 from app.calendar.models.audit import MeetingAuditLog
 from app.users.models.user import User
 

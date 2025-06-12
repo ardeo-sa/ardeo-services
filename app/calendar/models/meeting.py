@@ -5,6 +5,7 @@ participants, notes, and patients discussed in MDT.
 from datetime import datetime, timezone
 from enum import Enum
 
+from sqlalchemy.sql import func
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
 
@@ -17,7 +18,7 @@ class Meeting(Base):
     """
     __tablename__ = "meetings"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     title = Column(String, nullable=False)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
@@ -33,6 +34,7 @@ class Meeting(Base):
 
 
 class MeetingType(str, Enum):
+    """Possible meeting types"""
     MDT = "mdt"
     REVIEW = "review"
 
@@ -45,9 +47,10 @@ class MeetingParticipant(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.id"))
-    user_id = Column(Integer)
+    user_id = Column(Integer, ForeignKey("users.id"))
 
     meeting = relationship("Meeting", back_populates="participants")
+    user = relationship("User", back_populates="meeting_links")
 
 
 class MeetingNote(Base):
@@ -60,9 +63,10 @@ class MeetingNote(Base):
     meeting_id = Column(Integer, ForeignKey("meetings.id"))
     type = Column(String)
     content = Column(Text)
-    created_at = Column(DateTime)
-
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id"))
     meeting = relationship("Meeting", back_populates="notes")
+    author = relationship("User")  # add this relationship
 
 
 class MeetingPatient(Base):

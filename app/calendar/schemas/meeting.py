@@ -27,8 +27,8 @@ class MeetingCreate(BaseModel):
     type: MeetingType = Field(..., example="mdt")
     start_time: datetime = Field(..., example="2024-06-15T10:00:00Z")
     end_time: datetime = Field(..., example="2024-06-15T11:00:00Z")
-    participant_ids: List[int] = Field(..., example=[2, 3])
-    patient_ids: Optional[List[int]] = None
+    participants: List[int] = Field(..., example=[2, 3])
+    patients: Optional[List[int]] = None
 
     class Config:
         schema_extra = {
@@ -37,7 +37,7 @@ class MeetingCreate(BaseModel):
                 "type": "mdt",
                 "start_time": "2024-06-15T10:00:00Z",
                 "end_time": "2024-06-15T11:00:00Z",
-                "participant_ids": [2, 5, 9]
+                "participants": [2, 5, 9]
             }
         }
 
