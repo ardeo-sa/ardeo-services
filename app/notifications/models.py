@@ -1,0 +1,67 @@
+"""
+notifications.models
+
+Contains the SQLAlchemy ORM models for the Notification system.
+Defines notification types, statuses, and the Notification database table.
+"""
+from datetime import datetime
+from enum import Enum as PyEnum
+
+from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime, Text
+from sqlalchemy.orm import relationship
+
+from ..database.services import Base
+
+class NotificationType(PyEnum):
+    """Enumeration of notification delivery types."""
+    IN_APP = "in_app"
+    EMAIL = "email"
+    SMS = "sms"
+
+class NotificationStatus(PyEnum):
+    """Enumeration of the state of a notification."""
+    UNREAD = "unread"
+    READ = "read"
+    SNOOZED = "snoozed"
+    DISMISSED = "dismissed"
+
+class Notification(Base):
+    """
+    SQLAlchemy model for notifications.
+
+    Attributes:
+        id: Primary key.
+        user_id: The ID of the user who should receive the notification.
+        patient_id: Optional patient related to the notification.
+        pathway_step_id: Optional pathway step related to the notification.
+        task_id: Optional task related to the notification.
+        type: Type of notification (e.g., in-app, email).
+        status: Status of the notification (e.g., unread, read).
+        message: The content of the notification.
+        created_at: Timestamp when the notification was created.
+        sent_at: Timestamp when it was sent.
+        read_at: Timestamp when it was read.
+    """
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, index=True)
+    patient_id = Column(Integer, index=True, nullable=True)
+    pathway_step_id = Column(Integer, nullable=True)
+    task_id = Column(Integer, nullable=True)
+    type = Column(Enum(NotificationType), default=NotificationType.IN_APP)
+    status = Column(Enum(NotificationStatus), default=NotificationStatus.UNREAD)
+    message = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    sent_at = Column(DateTime, nullable=True)
+    read_at = Column(DateTime, nullable=True)
+
+    def is_critical(self):
+        """
+        Determines if the notification is critical.
+        Placeholder for business logic.
+
+        Returns:
+            bool: True if critical, False otherwise.
+        """
+        return False
