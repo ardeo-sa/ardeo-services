@@ -57,4 +57,8 @@ class Patient(Base):
     )
 
     def __repr__(self):
-        return f"<Patient(id={self.id}, name='{self.first_name} {self.last_name}')>"
+        return f"<Patient(id={self.id})>"
+
+    @property
+    def name(self) -> str:
+        return f"{self.first_name} {self.last_name}"

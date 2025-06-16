@@ -6,7 +6,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from sqlalchemy import or_, and_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from fastapi import Depends, HTTPException
 
 from app.calendar.models.meeting import Meeting, MeetingNote, MeetingParticipant, MeetingPatient
@@ -127,3 +127,16 @@ def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: User, 
     db.refresh(note)
 
     return note
+
+
+def list_meetings(db):
+    meetings = (
+        db.query(Meeting)
+        .options(
+            joinedload(Meeting.participants),
+            joinedload(Meeting.notes),
+            joinedload(Meeting.meeting_patients).joinedload(MeetingPatient.patient)
+        )
+        .all()
+    )
+    return meetings

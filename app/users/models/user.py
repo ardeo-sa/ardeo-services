@@ -8,6 +8,7 @@ between roles like 'user', 'admin', and 'coordinator'.
 """
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
 
 from ..schemas.user import UserRole
 from app.database.services import Base

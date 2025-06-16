@@ -332,7 +332,7 @@ def download_supporting_file(
     return FileResponse(path=file.path, filename=file.name, media_type='application/octet-stream')
 
 
-@router.get("/", response_model=List[MeetingResponse])
+@router.get("/", response_model=List[MeetingDetail])
 def list_meetings(
     db: Session = Depends(get_services_db),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -356,12 +356,7 @@ def list_meetings(
         List[MeetingResponse]: A list of meetings.
     """
     return services.list_meetings(
-        db=db,
-        skip=skip,
-        limit=limit,
-        search=search,
-        start_date=start_date,
-        end_date=end_date
+        db=db
     )
 
 @router.get("/{meeting_id}/audit", response_model=List[dict])

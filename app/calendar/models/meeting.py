@@ -61,7 +61,8 @@ class MeetingNote(Base):
     type = Column(String)
     content = Column(Text)
     created_at = Column(DateTime)
-
+    author_id = Column(Integer, ForeignKey("users.id"))
+    author = relationship("User")
     meeting = relationship("Meeting", back_populates="notes")
 
 
