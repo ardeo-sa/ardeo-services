@@ -16,3 +16,4 @@ class NotificationStatus(str, Enum):
     READ = "read"
     SNOOZED = "snoozed"
     DISMISSED = "dismissed"
+

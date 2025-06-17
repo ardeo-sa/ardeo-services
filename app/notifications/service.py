@@ -64,11 +64,15 @@ class NotificationService:
         Returns:
             Notification: Updated Notification object.
         """
-        notif = self.db.query(Notification).get(notification_id)
-        if notif:
-            notif.status = NotificationStatus.READ
-            notif.read_at = datetime.now(timezone.utc)
-            await self.db.commit()
+        notif = await self.db.get(Notification, notification_id)
+
+        if notif is None:
+            raise ValueError(f"Notification ID {notification_id} not found")
+
+        notif.status = NotificationStatus.READ
+        notif.read_at = datetime.now(timezone.utc)
+        await self.db.commit()
+        await self.db.refresh(notif)
         return notif
 
     async def dismiss(self, notification_id: int) -> Notification:
@@ -81,10 +85,14 @@ class NotificationService:
         Returns:
             Notification: Updated Notification object.
         """
-        notif = self.db.query(Notification).get(notification_id)
-        if notif:
-            notif.status = NotificationStatus.DISMISSED
-            await self.db.commit()
+        notif = await self.db.get(Notification, notification_id)
+
+        if notif is None:
+            raise ValueError(f"Notification ID {notification_id} not found")
+
+        notif.status = NotificationStatus.DISMISSED
+        await self.db.commit()
+        await self.db.refresh(notif)
         return notif
 
     async def snooze(self, notification_id: int, snooze_until: datetime) -> Notification:
@@ -98,15 +106,14 @@ class NotificationService:
         Returns:
             Notification: Updated Notification object.
         """
-        notif = self.db.query(Notification).get(notification_id)
-        if not notif:
-            raise NoResultFound(f"Notification ID {notification_id} not found")
+        notif = await self.db.get(Notification, notification_id)
+        if notif is None:
+            raise ValueError(f"Notification ID {notification_id} not found")
 
         notif.status = NotificationStatus.SNOOZED
         notif.snooze_until = snooze_until
-        self.db.commit()
-        self.db.refresh(notif)
-
+        await self.db.commit()
+        await self.db.refresh(notif)
         return notif
 
     async def get_active_notifications(self, user_id: int) -> List[Notification]:

@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel
 
-from .enums import NotificationType, NotificationStatus
+from app.notifications.enums import NotificationType, NotificationStatus
 
 class NotificationBase(BaseModel):
     """Base schema shared by all Notification schemas."""
@@ -16,9 +16,14 @@ class NotificationBase(BaseModel):
     pathway_step_id: Optional[int]
     task_id: Optional[int]
 
-class NotificationCreate(NotificationBase):
+class NotificationCreate(BaseModel):
     """Schema for creating a new Notification."""
-    pass
+    user_id: int
+    message: str
+    type: NotificationType
+    patient_id: Optional[int] = None
+    pathway_step_id: Optional[int] = None
+    task_id: Optional[int] = None
 
 class NotificationRead(NotificationBase):
     """Schema for reading a Notification from the database."""
@@ -28,8 +33,9 @@ class NotificationRead(NotificationBase):
     sent_at: Optional[datetime]
     read_at: Optional[datetime]
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 class NotificationOut(BaseModel):
     id: int
@@ -42,5 +48,6 @@ class NotificationOut(BaseModel):
     read_at: Optional[datetime]
     snooze_until: Optional[datetime]  # <-- Add this
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }

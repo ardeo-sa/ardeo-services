@@ -10,18 +10,9 @@ from sqlalchemy.orm import relationship
 
 from ..database.services import Base
 
-class NotificationType(PyEnum):
-    """Enumeration of notification delivery types."""
-    IN_APP = "in_app"
-    EMAIL = "email"
-    SMS = "sms"
+from app.notifications.enums import NotificationType
+from app.notifications.enums import NotificationStatus
 
-class NotificationStatus(PyEnum):
-    """Enumeration of the state of a notification."""
-    UNREAD = "unread"
-    READ = "read"
-    SNOOZED = "snoozed"
-    DISMISSED = "dismissed"
 
 class Notification(Base):
     """
