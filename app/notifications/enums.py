@@ -1,6 +1,4 @@
 """
-notifications.enums
-
 Defines enums for notification type and status.
 """
 

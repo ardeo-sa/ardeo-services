@@ -1,5 +1,5 @@
 """
-Unit tests for the NotificationService in app.notifications.service.
+Unit tests for the notification service in app.notifications.service.
 """
 import pytest
 from datetime import datetime, timedelta

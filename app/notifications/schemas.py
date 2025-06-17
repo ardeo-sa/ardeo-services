@@ -1,12 +1,9 @@
 """
-notifications.schemas
-
 Defines the Pydantic models (schemas) for validating and serializing notification data.
 """
-
-from pydantic import BaseModel
-from datetime import datetime
 from typing import Optional
+from datetime import datetime
+from pydantic import BaseModel
 
 from .enums import NotificationType, NotificationStatus
 
@@ -30,6 +27,20 @@ class NotificationRead(NotificationBase):
     created_at: datetime
     sent_at: Optional[datetime]
     read_at: Optional[datetime]
+
+    class Config:
+        orm_mode = True
+
+class NotificationOut(BaseModel):
+    id: int
+    user_id: int
+    message: str
+    type: NotificationType
+    status: NotificationStatus
+    created_at: datetime
+    sent_at: Optional[datetime]
+    read_at: Optional[datetime]
+    snooze_until: Optional[datetime]  # <-- Add this
 
     class Config:
         orm_mode = True
