@@ -6,6 +6,7 @@ Overrides FastAPI dependencies to inject test database sessions.
 """
 import asyncio
 from uuid import uuid4
+import importlib
 
 import pytest
 import pytest_asyncio
@@ -17,12 +18,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from fastapi.testclient import TestClient
 
+from user_factory import UserFactory
+
 from app.main import app
+import app.config
 from app.database.services import get_services_db, Base
 from app.users.models.user import User
 from app.calendar.models.meeting import Meeting
 from app.core.dependencies import get_current_user
-from user_factory import UserFactory
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 engine = create_async_engine(
@@ -47,6 +50,7 @@ app.dependency_overrides[get_services_db] = override_get_db
 
 
 @pytest.fixture
+# pylint: disable=redefined-outer-name
 def client():
     """
     Synchronous test client for use in non-async test functions.
@@ -56,6 +60,7 @@ def client():
 
 @pytest.fixture(autouse=True)
 def mock_env_vars(monkeypatch):
+    """Mock environmental variables"""
     # Mock DB URI
     monkeypatch.setenv("SERVICES_DB_URI", "sqlite:///./test.db")
 
@@ -69,8 +74,6 @@ def mock_env_vars(monkeypatch):
     monkeypatch.setenv("MICROSOFT_CLIENT_SECRET", "fake-microsoft-client-secret")
     monkeypatch.setenv("MICROSOFT_REDIRECT_URI", "http://localhost/fake-microsoft-redirect")
 
-    import importlib
-    import app.config
     importlib.reload(app.config)
 
 
@@ -85,6 +88,7 @@ def event_loop():
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
+# pylint: disable=redefined-outer-name
 async def db_engine():
     """
     Create DB schema once for all tests.
@@ -96,6 +100,7 @@ async def db_engine():
 
 
 @pytest_asyncio.fixture
+# pylint: disable=redefined-outer-name
 async def db_session():
     """
     Creates a new session for each test.
@@ -120,10 +125,12 @@ async def async_client(db_session: AsyncSession):
 
 
 @pytest_asyncio.fixture
+# pylint: disable=redefined-outer-name
 def user_factory(db_session):
     """
     Returns a factory for generating test users.
     """
+    # pylint: disable=protected-access
     UserFactory._meta.sqlalchemy_session = db_session
 
     def factory(**kwargs):
@@ -133,6 +140,7 @@ def user_factory(db_session):
 
 
 @pytest_asyncio.fixture
+# pylint: disable=redefined-outer-name
 async def normal_user(db_session, user_factory):
     """
     Create a normal user for testing.
@@ -152,6 +160,7 @@ async def normal_user(db_session, user_factory):
 
 
 @pytest_asyncio.fixture
+# pylint: disable=redefined-outer-name
 async def coordinator_user(db_session, user_factory):
     """Create a coordinator user."""
     user = user_factory(
