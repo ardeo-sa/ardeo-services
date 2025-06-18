@@ -119,12 +119,12 @@ async def async_client(db_session: AsyncSession):
         yield client
 
 
-@pytest.fixture
-def user_factory():
+@pytest_asyncio.fixture
+def user_factory(db_session):
     """
     Returns a factory for generating test users.
     """
-    # UserFactory._meta.sqlalchemy_session = db_session
+    UserFactory._meta.sqlalchemy_session = db_session
 
     def factory(**kwargs):
         return UserFactory(**kwargs)
@@ -133,7 +133,7 @@ def user_factory():
 
 
 @pytest_asyncio.fixture
-async def normal_user(db_session: AsyncSession, user_factory):
+async def normal_user(db_session, user_factory):
     """
     Create a normal user for testing.
     """
@@ -152,7 +152,7 @@ async def normal_user(db_session: AsyncSession, user_factory):
 
 
 @pytest_asyncio.fixture
-async def coordinator_user(db_session: AsyncSession, user_factory):
+async def coordinator_user(db_session, user_factory):
     """Create a coordinator user."""
     user = user_factory(
         email=f"coord_{uuid4().hex[:8]}@example.com",
