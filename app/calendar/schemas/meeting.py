@@ -6,6 +6,8 @@ from enum import Enum
 from typing import List, Optional
 from datetime import datetime
 
+from sqlalchemy import Column, ForeignKey, Integer
+from sqlalchemy.orm import relationship
 from pydantic import BaseModel, Field
 
 class MeetingType(str, Enum):
@@ -78,10 +80,10 @@ class MeetingNoteResponse(BaseModel):
     """
     id: int
     meeting_id: int
-    author_id: int
-    type: MeetingNoteType
+    type: str
     content: str
     created_at: datetime
+    author_id: Optional[int] = None
 
     model_config = {
         "from_attributes": True
@@ -96,14 +98,42 @@ class MeetingNotes(BaseModel):
     notes: List[MeetingNoteResponse]
 
 
+class UserOut(BaseModel):
+    """
+    Output schema for a user (participant).
+    """
+    id: int
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+class PatientOut(BaseModel):
+    """
+    Output schema for a patient in a meeting.
+    """
+    id: int
+    first_name: str
+    last_name: str
+    date_of_birth: Optional[datetime] = None
+    identifier: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
 class MeetingDetail(MeetingResponse):
     """
-    Detailed meeting response with participants, notes, and lock status.
+    Detailed meeting response with participants, notes, patients, and lock status.
     """
-    participants: List[int]
-    notes: List[MeetingNoteResponse]
+    participants: List[UserOut] = Field(default_factory=list)
+    notes: List[MeetingNoteResponse] = Field(default_factory=list)
+    patients: List[PatientOut] = Field(default_factory=list)
     locked: bool
 
+    class Config:
+        orm_mode = True
 
 class MeetingNoteCreate(BaseModel):
     """
@@ -131,3 +161,4 @@ class MeetingNoteUpdate(BaseModel):
     """
     type: MeetingNoteType
     content: str
+

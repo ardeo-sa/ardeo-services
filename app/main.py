@@ -4,6 +4,9 @@ Initializes the app and includes all routers.
 """
 from fastapi import FastAPI
 from app.api.router import router as api_router
+
+from  app.calendar.api.router import router as meetings_router
+# from app.database import services
 from app.database.services import Base, get_services_engine
 
 app = FastAPI(title="Services Management App")
@@ -19,3 +22,4 @@ app = FastAPI(title="Services Management App")
 # Base.metadata.create_all(services_engine)
 
 app.include_router(api_router)
+app.include_router(meetings_router)

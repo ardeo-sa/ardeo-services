@@ -5,7 +5,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from sqlalchemy import or_, and_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from fastapi import Depends, HTTPException
@@ -194,7 +194,6 @@ async def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: 
     await db.refresh(note)
 
     return note
-
 
 async def list_meetings(
     db: AsyncSession,

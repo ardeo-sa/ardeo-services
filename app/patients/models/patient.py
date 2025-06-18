@@ -63,3 +63,7 @@ class Patient(Base):
            Includes the patient ID and full name.
         """
         return f"<Patient(id={self.id}, name='{self.first_name} {self.last_name}')>"
+
+    @property
+    def name(self) -> str:
+        return f"{self.first_name} {self.last_name}"

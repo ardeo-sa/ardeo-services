@@ -345,6 +345,7 @@ async def download_supporting_file(
     return FileResponse(path=file.path, filename=file.name, media_type='application/octet-stream')
 
 
+
 @router.get("/", response_model=List[MeetingResponse])
 async def list_meetings(
     db: AsyncSession = Depends(get_services_db),
@@ -368,6 +369,7 @@ async def list_meetings(
     Returns:
         List[MeetingResponse]: A list of meetings.
     """
+
     return await services.list_meetings(
         db=db,
         skip=skip,
