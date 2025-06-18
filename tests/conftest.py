@@ -21,7 +21,8 @@ from fastapi.testclient import TestClient
 from user_factory import UserFactory
 
 from app.main import app
-import app.config
+import app.config as app_config
+
 from app.database.services import get_services_db, Base
 from app.users.models.user import User
 from app.calendar.models.meeting import Meeting
@@ -74,7 +75,7 @@ def mock_env_vars(monkeypatch):
     monkeypatch.setenv("MICROSOFT_CLIENT_SECRET", "fake-microsoft-client-secret")
     monkeypatch.setenv("MICROSOFT_REDIRECT_URI", "http://localhost/fake-microsoft-redirect")
 
-    importlib.reload(app.config)
+    importlib.reload(app_config)
 
 
 @pytest.fixture(scope="session")
