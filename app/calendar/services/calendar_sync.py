@@ -6,6 +6,7 @@ external calendar services (Google Calendar, Microsoft Outlook Calendar) using
 OAuth tokens stored in the database.
 """
 from datetime import datetime
+import os
 
 import requests
 from google.oauth2.credentials import Credentials

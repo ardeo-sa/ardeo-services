@@ -2,10 +2,11 @@
 Pydantic schemas for meetings, including creation, response models,
 notes, and meeting metadata.
 """
-from pydantic import BaseModel, Field
 from enum import Enum
 from typing import List, Optional
 from datetime import datetime
+
+from pydantic import BaseModel, Field
 
 class MeetingType(str, Enum):
     """
@@ -52,8 +53,9 @@ class MeetingResponse(BaseModel):
     start_time: datetime
     end_time: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class MeetingNoteType(str, Enum):
@@ -81,8 +83,9 @@ class MeetingNoteResponse(BaseModel):
     content: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class MeetingNotes(BaseModel):
