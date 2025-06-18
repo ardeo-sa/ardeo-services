@@ -38,6 +38,7 @@ class NotificationRead(NotificationBase):
     }
 
 class NotificationOut(BaseModel):
+    """Schema for serializing notification data to API consumers."""
     id: int
     user_id: int
     message: str

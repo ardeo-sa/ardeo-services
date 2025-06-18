@@ -8,11 +8,9 @@ from enum import Enum as PyEnum
 from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime, Text
 from sqlalchemy.orm import relationship
 
-from ..database.services import Base
-
 from app.notifications.enums import NotificationType
 from app.notifications.enums import NotificationStatus
-
+from app.database.services import Base
 
 class Notification(Base):
     """

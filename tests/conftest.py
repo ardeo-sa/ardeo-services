@@ -4,25 +4,25 @@ Test fixtures for setting up a mock SQLite database and FastAPI test client.
 Provides a temporary in-memory SQLite database with tables created from app models.
 Overrides FastAPI dependencies to inject test database sessions.
 """
-import pytest
 import asyncio
-import httpx
-from httpx import AsyncClient
-from httpx import ASGITransport
-import pytest_asyncio
 from uuid import uuid4
+
+import pytest
+import pytest_asyncio
+import httpx
+from httpx import ASGITransport
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from fastapi.testclient import TestClient
 
-from user_factory import UserFactory
 from app.main import app
 from app.database.services import get_services_db, Base
 from app.users.models.user import User
 from app.calendar.models.meeting import Meeting
 from app.core.dependencies import get_current_user
+from user_factory import UserFactory
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 engine = create_async_engine(
@@ -37,6 +37,9 @@ AsyncTestingSessionLocal = sessionmaker(
 
 # Async override for get_db
 async def override_get_db():
+    """
+        Override FastAPI DB dependency to use the test session.
+    """
     async with AsyncTestingSessionLocal() as session:
         yield session
 
@@ -93,7 +96,7 @@ async def db_engine():
 
 
 @pytest_asyncio.fixture
-async def db_session(db_engine) -> AsyncSession:
+async def db_session():
     """
     Creates a new session for each test.
     """
@@ -102,22 +105,35 @@ async def db_session(db_engine) -> AsyncSession:
 
 
 @pytest_asyncio.fixture
-async def async_client(db_session):
+async def async_client(db_session: AsyncSession):
     """
     Returns an HTTPX AsyncClient with test overrides.
     """
     async def override_db():
         yield db_session
+
     app.dependency_overrides[get_services_db] = override_db
 
     transport = ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-    # async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
 
 
+@pytest.fixture
+def user_factory():
+    """
+    Returns a factory for generating test users.
+    """
+    # UserFactory._meta.sqlalchemy_session = db_session
+
+    def factory(**kwargs):
+        return UserFactory(**kwargs)
+
+    return factory
+
+
 @pytest_asyncio.fixture
-async def normal_user(db_session, user_factory):
+async def normal_user(db_session: AsyncSession, user_factory):
     """
     Create a normal user for testing.
     """
@@ -136,7 +152,7 @@ async def normal_user(db_session, user_factory):
 
 
 @pytest_asyncio.fixture
-async def coordinator_user(db_session, user_factory):
+async def coordinator_user(db_session: AsyncSession, user_factory):
     """Create a coordinator user."""
     user = user_factory(
         email=f"coord_{uuid4().hex[:8]}@example.com",
@@ -166,13 +182,16 @@ async def mock_meeting(db_session, coordinator_user):
 
 
 def override_user(user):
+    """
+    Returns a FastAPI override for get_current_user with the given user.
+    """
     def _override():
         return user
     return _override
 
 
 @pytest_asyncio.fixture
-async def override_current_user_normal(normal_user):
+async def override_current_user_normal(normal_user: User):
     """
     Override FastAPI dependency to use a normal user.
     """
@@ -182,24 +201,20 @@ async def override_current_user_normal(normal_user):
 
 
 @pytest_asyncio.fixture
-async def override_current_user_coord(coordinator_user):
+async def override_current_user_coord(coordinator_user: User):
+    """
+    Override FastAPI user dependency with a coordinator user.
+    """
     app.dependency_overrides[get_current_user] = override_user(coordinator_user)
     yield
     app.dependency_overrides[get_current_user] = get_current_user
 
 
 @pytest.fixture
-def user_factory(db_session):
-    UserFactory._meta.sqlalchemy_session = db_session
-
-    def factory(**kwargs):
-        return UserFactory(**kwargs)
-
-    return factory
-
-
-@pytest.fixture
-def override_user_dependency(normal_user):
+def override_user_dependency(normal_user: User):
+    """
+    Override FastAPI dependency for get_current_user in sync tests.
+    """
     app.dependency_overrides[get_current_user] = lambda: normal_user
     yield
     app.dependency_overrides.clear()

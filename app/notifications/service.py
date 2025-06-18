@@ -117,6 +117,21 @@ class NotificationService:
         return notif
 
     async def get_active_notifications(self, user_id: int) -> List[Notification]:
+        """
+            Retrieve all active notifications for a given user.
+
+            Active notifications are defined as:
+            - Notifications with status UNREAD, or
+            - Notifications with status SNOOZED where the snooze_until time has passed.
+
+            Results are ordered by creation time in descending order.
+
+            Args:
+                user_id (int): The ID of the user for whom to fetch notifications.
+
+            Returns:
+                List[Notification]: A list of active Notification objects.
+        """
         now = datetime.now(timezone.utc)
         return (
             self.db.query(Notification)
