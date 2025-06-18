@@ -87,7 +87,7 @@ async def add_patient_to_meeting(
     meeting_id: int,
     patient_ids: List[int] = Body(...),
     db: AsyncSession = Depends(get_services_db),
-    current_user: User = Depends(require_coordinator), # noqa: F841
+    current_user: User = Depends(require_coordinator), # pylint: disable=unused-argument
 ):
     """
     Add one or more patients to an MDT meeting.

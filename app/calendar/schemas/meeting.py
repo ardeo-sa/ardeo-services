@@ -6,8 +6,8 @@ from enum import Enum
 from typing import List, Optional
 from datetime import datetime
 
-from sqlalchemy import Column, ForeignKey, Integer
-from sqlalchemy.orm import relationship
+# from sqlalchemy import Column, ForeignKey, Integer
+# from sqlalchemy.orm import relationship
 from pydantic import BaseModel, Field
 
 class MeetingType(str, Enum):
@@ -18,8 +18,8 @@ class MeetingType(str, Enum):
         - `regular`: A standard meeting with general discussions.
         - `mdt`: A multidisciplinary team (MDT) meeting involving collaborative decision-making across specialties.
     """
-    regular = "regular"
-    mdt = "mdt"
+    REGULAR = "regular"
+    MDT = "mdt"
 
 
 class MeetingCreate(BaseModel):
@@ -33,8 +33,8 @@ class MeetingCreate(BaseModel):
     participants: List[int] = Field(..., json_schema_extra={"example":[2, 3]})
     patients: Optional[List[int]] = None
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "title": "Liver MDT Discussion",
                 "type": "mdt",
@@ -43,6 +43,7 @@ class MeetingCreate(BaseModel):
                 "participants": [2, 5, 9]
             }
         }
+    }
 
 
 class MeetingResponse(BaseModel):
@@ -69,9 +70,9 @@ class MeetingNoteType(str, Enum):
         - `recommendation`: Suggestions or advice based on discussion.
         - `conclusion`: Final decisions or outcomes from the meeting.
     """
-    discussion = "discussion"
-    recommendation = "recommendation"
-    conclusion = "conclusion"
+    DISCUSSION = "discussion"
+    RECOMMENDATION = "recommendation"
+    CONCLUSION = "conclusion"
 
 
 class MeetingNoteResponse(BaseModel):
@@ -106,8 +107,9 @@ class UserOut(BaseModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class PatientOut(BaseModel):
@@ -120,8 +122,10 @@ class PatientOut(BaseModel):
     date_of_birth: Optional[datetime] = None
     identifier: Optional[str] = None
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
+
 
 class MeetingDetail(MeetingResponse):
     """
@@ -132,8 +136,10 @@ class MeetingDetail(MeetingResponse):
     patients: List[PatientOut] = Field(default_factory=list)
     locked: bool
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
+
 
 class MeetingNoteCreate(BaseModel):
     """
@@ -146,13 +152,14 @@ class MeetingNoteCreate(BaseModel):
     type: MeetingNoteType = Field(..., description="Type of note")
     content: str = Field(..., min_length=1, description="Note content")
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "type": "recommendation",
                 "content": "Consider MRI follow-up within 3 months."
             }
         }
+    }
 
 
 class MeetingNoteUpdate(BaseModel):
@@ -161,4 +168,3 @@ class MeetingNoteUpdate(BaseModel):
     """
     type: MeetingNoteType
     content: str
-
