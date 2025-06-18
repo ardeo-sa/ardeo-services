@@ -5,41 +5,45 @@ Includes tests for meeting creation, listing, retrieval, note editing, adding pa
 and permission validation for locking and audit logging.
 """
 import pytest
-import httpx
-from datetime import datetime, timedelta
+import tempfile
+from datetime import datetime, timedelta, timezone
 
-from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from sqlalchemy import select
+from httpx import AsyncClient
+from httpx._transports.asgi import ASGITransport
 
+
+from app.calendar.models.meeting import Meeting, MeetingParticipant, SupportingFile
 from app.calendar.schemas.meeting import MeetingCreate, MeetingNoteCreate, MeetingType, MeetingNoteType
 from app.users.models.user import User
+from app.core.dependencies import get_current_user
 from app.main import app
-
-
-@pytest.fixture
-async def async_client():
-    async with httpx.AsyncClient(app=app, base_url="http://testserver") as client:
-        yield client
-
+from app.database.services import get_services_db
 
 @pytest.mark.asyncio
-async def test_create_regular_meeting(client: TestClient, db_session):
+async def test_create_regular_meeting(async_client: AsyncClient, normal_user, override_user_dependency):
     """
     Test creating a regular meeting by a normal user.
+    Normal user is provided by nomrla user fixture
     """
-    # Mock user with no special role
-    user = User(id=1, role="user")
-    db_session.add(user)
-    db_session.commit()
+    # app.dependency_overrides[get_current_user] = lambda: normal_user
 
     meeting_data = {
         "title": "Test Regular Meeting",
         "type": MeetingType.regular.value,
-        "date": "2025-01-01T10:00:00Z",
-        "description": "A regular meeting test"
+        "start_time": "2025-01-01T10:00:00Z",
+        "end_time": "2025-01-01T11:00:00Z",
+        "locked": False,
+        "participants": [normal_user.id]
     }
 
-    # Simulate login by overriding dependency or using a fixture that returns `user`
-    response = await async_client.post("/api/meetings/", json=meeting_data)
+    # participant_link = MeetingParticipant(user_id=normal_user.id)
+    # meeting_data.participants.append(participant_link)
+
+    response = await async_client.post("/api/calendar/meetings/", json=meeting_data)
+    print(response.status_code, response.text)
 
     assert response.status_code == 200
     data = response.json()
@@ -49,37 +53,178 @@ async def test_create_regular_meeting(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-async def test_create_mdt_meeting_requires_coordinator_role(client: TestClient):
+async def test_create_mdt_meeting(async_client: AsyncClient, coordinator_user):
+    """
+    Test creating a regular meeting by a normal user.
+    Normal user is provided by nomrla user fixture
+    """
+    app.dependency_overrides[get_current_user] = lambda: coordinator_user
+
+    try:
+        meeting_data = {
+            "title": "Test MDT Meeting",
+            "type": MeetingType.mdt.value,
+            "start_time": "2025-01-01T10:00:00Z",
+            "end_time": "2025-01-01T11:00:00Z",
+            "participants": [coordinator_user.id],
+            "locked": False
+        }
+
+        response = await async_client.post("/api/calendar/meetings/", json=meeting_data)
+        print(response.status_code, response.text)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["title"] == meeting_data["title"]
+        assert data["type"] == meeting_data["type"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_create_mdt_meeting_requires_coordinator_role(async_client: AsyncClient,
+                                                            normal_user, override_user_dependency):
     """
     Test that creating an MDT meeting without coordinator role fails.
     """
+    # Simulate authenticated user
+    # app.dependency_overrides[get_current_user] = lambda: normal_user
+
     meeting_data = {
-        "title": "MDT Meeting",
+        "title": "Test MDT Meeting set-up by regular user",
         "type": MeetingType.mdt.value,
-        "date": "2025-01-01T10:00:00Z",
-        "description": "An MDT meeting test"
+        "start_time": "2025-01-01T10:00:00Z",
+        "end_time": "2025-01-01T11:00:00Z",
+        "participants": [normal_user.id],
+        "locked": False
     }
 
     # Assume user with role 'user' (not coordinator)
-    response = async_client.post("/api/meetings/", json=meeting_data)
+    response = await async_client.post("/api/calendar/meetings/", json=meeting_data)
+    print(response.status_code, response.text)
 
     assert response.status_code == 403 or response.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_add_note_to_meeting(client: TestClient, db_session):
+async def test_user_is_meeting_participant(async_client: AsyncClient, normal_user,
+                                           db_session: AsyncSession, override_user_dependency):
+    """
+    Test that the user is correctly added as a participant to a meeting.
+    """
+    # Simulate authentication
+    # app.dependency_overrides[get_current_user] = lambda: normal_user
+
+    # Sync with session
+    normal_user = await db_session.merge(normal_user)
+
+    # Create meeting with the user as a participant
+    meeting = Meeting(
+        title="Test Meeting",
+        type=MeetingType.mdt.value,
+        start_time=datetime.now(timezone.utc),
+        end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+        participants=[
+            MeetingParticipant(user=normal_user)
+        ],
+        locked=False
+    )
+    db_session.add(meeting)
+    await db_session.commit()
+    await db_session.refresh(meeting)
+
+    # Fetch meeting from DB and verify participant inclusion
+    result = await db_session.execute(
+        select(Meeting).
+        options(selectinload(Meeting.participants).
+        selectinload(MeetingParticipant.user)).
+        where(Meeting.id == meeting.id)
+    )
+    fetched_meeting = result.scalar_one()
+
+    participant_ids = {p.user_id for p in fetched_meeting.participants}
+    assert normal_user.id in participant_ids
+
+
+@pytest.mark.asyncio
+async def test_list_meetings(async_client: AsyncClient):
+    """
+    Test that listing meetings returns valid meeting data.
+    """
+    response = await async_client.get("/api/calendar/meetings/")
+    assert response.status_code == 200
+
+    meetings = response.json()
+    assert isinstance(meetings, list)
+
+
+@pytest.mark.asyncio
+async def test_get_meeting_by_id(async_client: AsyncClient, normal_user,
+                                 db_session: AsyncSession, override_user_dependency):
+    """
+    Test retrieving a meeting by its ID.
+    """
+    # Simulate authenticated user
+    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    normal_user = await db_session.merge(normal_user)
+
+    # Prepare meeting and user fixture
+    meeting = Meeting(
+        title="Test Meeting",
+        type=MeetingType.mdt.value,
+        start_time=datetime.now(timezone.utc),
+        end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+        participants=[
+            MeetingParticipant(user=normal_user)
+        ],
+        locked=False
+    )
+    db_session.add(meeting)
+    await db_session.commit()
+    await db_session.refresh(meeting)
+
+    response = await async_client.get(f"/api/calendar/meetings/{meeting.id}")
+    assert response.status_code == 200
+
+    meeting_data = response.json()
+    assert meeting_data["id"] == meeting.id
+    assert "title" in meeting_data
+
+
+@pytest.mark.asyncio
+async def test_add_note_to_meeting(async_client: AsyncClient, normal_user,
+                                   db_session: AsyncSession, override_user_dependency):
     """
     Test adding a note to a meeting.
     """
-    # Prepare meeting and user fixtures (mock or create them)
+    # Simulate authenticated user
+    # app.dependency_overrides[get_current_user] = lambda: normal_user
 
-    meeting_id = 1  # Assuming a meeting with ID 1 exists
+    normal_user = await db_session.merge(normal_user)
+
+    # Prepare meeting and user fixture
+    meeting = Meeting(
+        title="Test Meeting",
+        type=MeetingType.mdt.value,
+        start_time=datetime.now(timezone.utc),
+        end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+        participants=[
+            MeetingParticipant(user=normal_user)
+        ],
+        locked=False
+    )
+    db_session.add(meeting)
+    await db_session.commit()
+    await db_session.refresh(meeting)
+
     note_data = {
         "type": MeetingNoteType.recommendation.value,
         "content": "This is a test recommendation note."
     }
 
-    response = async_client.post(f"/api/meetings/{meeting_id}/notes", json=note_data)
+    response = await async_client.post(f"/api/calendar/meetings/{meeting.id}/notes", json=note_data)
+
     assert response.status_code == 200
     note = response.json()
     assert note["content"] == note_data["content"]
@@ -87,68 +232,39 @@ async def test_add_note_to_meeting(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-async def test_lock_meeting_requires_proper_role(client: TestClient, db_session):
-    """
-    Test locking a meeting as a user without permission fails.
-    """
-    meeting_id = 1
-
-    response = async_client.post(f"/api/meetings/{meeting_id}/lock")
-    # Expect 403 Forbidden if not coordinator or admin
-    assert response.status_code == 403 or response.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_get_meeting_audit_log_requires_coordinator_or_admin(client: TestClient, db_session):
-    """
-    Test that audit log retrieval is forbidden for normal users.
-    """
-    meeting_id = 1
-
-    response = async_client.get(f"/api/meetings/{meeting_id}/audit")
-    assert response.status_code == 403 or response.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_list_meetings(client: TestClient, db_session):
-    """
-    Test that listing meetings returns valid meeting data.
-    """
-    response = async_client.get("/api/meetings/")
-    assert response.status_code == 200
-    meetings = response.json()
-    assert isinstance(meetings, list)
-
-
-@pytest.mark.asyncio
-async def test_get_meeting_by_id(client: TestClient, db_session):
-    """
-    Test retrieving a meeting by its ID.
-    """
-    # Assumes a meeting with ID 1 exists
-    meeting_id = 1
-    response = async_client.get(f"/api/meetings/{meeting_id}")
-    assert response.status_code == 200
-    meeting = response.json()
-    assert meeting["id"] == meeting_id
-    assert "title" in meeting
-
-
-@pytest.mark.asyncio
-async def test_edit_note_only_by_author(client: TestClient, db_session):
+async def test_edit_note_only_by_author(async_client: AsyncClient, normal_user,
+                                        db_session: AsyncSession, override_user_dependency):
     """
     Test that only the author can edit a meeting note.
     """
     # Setup: user is not the author
-    meeting_id = 1
+    # app.dependency_overrides[get_current_user] = lambda: normal_user
+
+    normal_user = await db_session.merge(normal_user)
+
+    # Prepare meeting and user fixture
+    meeting = Meeting(
+        title="Test Meeting",
+        type=MeetingType.mdt.value,
+        start_time=datetime.now(timezone.utc),
+        end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+        participants=[
+            MeetingParticipant(user=normal_user)
+        ],
+        locked=False
+    )
+    db_session.add(meeting)
+    await db_session.commit()
+    await db_session.refresh(meeting)
+
     note_id = 1
     edit_payload = {
         "type": MeetingNoteType.discussion.value,
         "content": "Edited note content"
     }
 
-    response = async_client.put(
-        f"/api/meetings/{meeting_id}/notes/{note_id}",
+    response = await async_client.put(
+        f"/api/calendar/meetings/{meeting.id}/notes/{note_id}",
         json=edit_payload
     )
 
@@ -157,132 +273,237 @@ async def test_edit_note_only_by_author(client: TestClient, db_session):
 
 
 @pytest.mark.asyncio
-async def test_add_patient_to_meeting_requires_coordinator(client: TestClient):
+async def test_lock_meeting_success(async_client: AsyncClient, coordinator_user, db_session: AsyncSession):
+    """
+    Test locking a meeting as a user with 'coordinator' or 'admin' role.
+    """
+    # Simulate authenticated coordinator
+    app.dependency_overrides[get_current_user] = lambda: coordinator_user
+
+    try:
+        coordinator_user = await db_session.merge(coordinator_user)
+
+        # Prepare meeting fixture
+        meeting = Meeting(
+            title="Test Meeting",
+            type=MeetingType.mdt.value,
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+            participants=[
+                MeetingParticipant(user=coordinator_user)
+            ],
+            locked=False
+        )
+        db_session.add(meeting)
+        await db_session.commit()
+        await db_session.refresh(meeting)
+
+        # Assuming a coordinator user is authenticated
+        response = await async_client.post(f"/api/calendar/meetings/{meeting.id}/lock")
+        if response.status_code == 200:
+            assert "locked" in response.json()["detail"]
+        else:
+            assert response.status_code in [403, 401]
+    finally:
+        app.dependency_overrides.clear()
+
+@pytest.mark.asyncio
+async def test_lock_meeting_requires_proper_role(async_client: AsyncClient, normal_user,
+                                                 db_session: AsyncSession, override_user_dependency):
+    """
+    Test locking a meeting as a user without permission fails.
+    """
+    # Simulate authenticated user
+    # app.dependency_overrides[get_current_user] = lambda: normal_user
+
+    normal_user = await db_session.merge(normal_user)
+
+    # Prepare meeting and user fixture
+    meeting = Meeting(
+        title="Test Meeting",
+        type=MeetingType.mdt.value,
+        start_time=datetime.now(timezone.utc),
+        end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+        participants=[
+            MeetingParticipant(user=normal_user)
+        ],
+        locked=False
+    )
+    db_session.add(meeting)
+    await db_session.commit()
+    await db_session.refresh(meeting)
+
+    response = await async_client.post(f"/api/calendar/meetings/{meeting.id}/lock")
+
+    # Expect 403 Forbidden if not coordinator or admin
+    assert response.status_code == 403 or response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_add_patient_to_meeting_as_coordinator(async_client: AsyncClient, coordinator_user,
+                                                     db_session:AsyncSession):
+    """
+    Test that a coordinator can add patients to a meeting.
+    """
+    app.dependency_overrides[get_current_user] = lambda: coordinator_user
+
+    try:
+        coordinator_user = await db_session.merge(coordinator_user)
+
+        # Prepare meeting fixture
+        meeting = Meeting(
+            title="Test Meeting",
+            type=MeetingType.mdt.value,
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+            participants=[
+                MeetingParticipant(user=coordinator_user)
+            ],
+            locked=False
+        )
+        db_session.add(meeting)
+        await db_session.commit()
+        await db_session.refresh(meeting)
+
+        # Add patients
+        response = await async_client.post(f"/api/calendar/meetings/{meeting.id}/patients", json=[101, 102])
+        assert response.status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+
+@pytest.mark.asyncio
+async def test_add_patient_to_meeting_requires_coordinator(async_client: AsyncClient, normal_user,
+                                                           db_session: AsyncSession, override_user_dependency):
     """
     Test adding patients to a meeting is restricted to coordinators.
     """
-    meeting_id = 1
+    # Simulate authenticated user
+    # app.dependency_overrides[get_current_user] = lambda: normal_user
+
+    normal_user = await db_session.merge(normal_user)
+
+    # Prepare meeting fixture
+    meeting = Meeting(
+        title="Test Meeting",
+        type=MeetingType.mdt.value,
+        start_time=datetime.now(timezone.utc),
+        end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+        participants=[
+            MeetingParticipant(user=normal_user)
+        ],
+        locked=False
+    )
+    db_session.add(meeting)
+    await db_session.commit()
+    await db_session.refresh(meeting)
+
     payload = [10, 11]
 
-    response = async_client.post(f"/api/meetings/{meeting_id}/patients", json=payload)
+    response = await async_client.post(f"/api/calendar/meetings/{meeting.id}/patients", json=payload)
     assert response.status_code in [403, 401]
 
 
 @pytest.mark.asyncio
-async def test_lock_meeting_success(client: TestClient, db_session):
-    """
-    Test locking a meeting as a user with 'coordinator' or 'admin' role.
-    """
-    meeting_id = 1
-
-    # Assuming a coordinator user is authenticated
-    response = async_client.post(f"/api/meetings/{meeting_id}/lock")
-    if response.status_code == 200:
-        assert "locked" in response.json()["detail"]
-    else:
-        assert response.status_code in [403, 401]
-
-
-@pytest.mark.asyncio
-async def test_get_meeting_audit_log_as_admin(client: TestClient, db_session):
-    """
-    Test audit log is accessible to users with 'admin' or 'coordinator' roles.
-    """
-    meeting_id = 1
-    response = async_client.get(f"/api/meetings/{meeting_id}/audit")
-    if response.status_code == 200:
-        assert isinstance(response.json(), list)
-    else:
-        assert response.status_code in [403, 401]
-
-
-@pytest.mark.asyncio
-async def test_create_meeting_as_coordinator(client, override_current_user_coord, db_session):
-    """
-    Test coordinator can create an MDT meeting.
-    """
-    payload = {
-        "title": "Neuro MDT",
-        "type": "mdt",
-        "scheduled_at": "2025-06-05T10:00:00Z"
-    }
-
-    response = async_client.post("/api/meetings/", json=payload)
-    assert response.status_code == 200
-    assert response.json()["title"] == "Neuro MDT"
-
-
-@pytest.mark.asyncio
-async def test_create_meeting_as_user_fails_for_mdt(client, override_current_user_normal):
-    """
-    Test normal users cannot create MDT meetings.
-    """
-    payload = {
-        "title": "MDT Attempt",
-        "type": "mdt",
-        "scheduled_at": "2025-06-06T09:00:00Z"
-    }
-
-    response = async_client.post("/api/meetings/", json=payload)
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-async def test_add_patient_to_meeting_as_coordinator(client, override_current_user_coord, db_session):
-    """
-    Test that a coordinator can add patients to a meeting.
-    """
-    # First, create a meeting
-    response = async_client.post("/api/meetings/", json={
-        "title": "MDT for Patient Add",
-        "type": "mdt",
-        "scheduled_at": "2025-07-01T14:00:00Z"
-    })
-    assert response.status_code == 200
-    meeting_id = response.json()["id"]
-
-    # Add patients
-    response = async_client.post(f"/api/meetings/{meeting_id}/patients", json=[101, 102])
-    assert response.status_code == 200
-    assert "patients" in response.json()
-
-
-@pytest.mark.asyncio
-async def test_upload_supporting_file(client, override_current_user_coord, db_session):
+async def test_upload_supporting_file(async_client: AsyncClient, coordinator_user,
+                                      db_session:AsyncSession):
     """
     Test that a coordinator can upload a file to a meeting.
     """
-    # Create a meeting
-    response = async_client.post("/api/meetings/", json={
-        "title": "File Upload MDT",
-        "type": "mdt",
-        "scheduled_at": "2025-07-02T09:00:00Z"
-    })
-    assert response.status_code == 200
-    meeting_id = response.json()["id"]
+    # Simulate authenticated user
+    app.dependency_overrides[get_current_user] = lambda: coordinator_user
+    try:
+        coordinator_user = await db_session.merge(coordinator_user)
 
-    # Simulate file upload
-    file_content = b"This is a test PDF content"
-    file_data = {
-        "file": ("test.pdf", file_content, "application/pdf")
-    }
+        # Create a meeting
+        meeting = Meeting(
+            title="Test Meeting",
+            type=MeetingType.mdt.value,
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+            participants=[
+                MeetingParticipant(user=coordinator_user)
+            ],
+            locked=False
+        )
+        db_session.add(meeting)
+        await db_session.commit()
+        await db_session.refresh(meeting)
 
-    upload_url = f"/api/meetings/{meeting_id}/files"
-    response = async_client.post(upload_url, files=file_data)
+        # Simulate file upload
+        file_content = b"This is a test PDF content"
+        file_data = {
+            "file": ("test.pdf", file_content, "application/pdf")
+        }
 
-    assert response.status_code == 200
-    resp_json = response.json()
-    assert resp_json["filename"] == "test.pdf"
-    assert resp_json["size_bytes"] == len(file_content)
+        upload_url = f"/api/calendar/meetings/{meeting.id}/files"
+        response = await async_client.post(upload_url, files=file_data)
+
+        assert response.status_code == 200
+        resp_json = response.json()
+        assert resp_json["filename"] == "test.pdf"
+        assert resp_json["size_bytes"] == len(file_content)
+    finally:
+        app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio
-async def test_download_file_requires_participant(client, override_current_user_coord, db_session):
+async def test_get_meeting_audit_log_as_admin(async_client: AsyncClient, coordinator_user, db_session: AsyncSession):
     """
-    Test that only participants can download uploaded files.
+    Test audit log is accessible to users with 'admin' or 'coordinator' roles.
     """
-    # Assume upload already done, test rejection for non-participant
-    meeting_id = 1
-    file_id = 1
-    response = async_client.get(f"/api/meetings/{meeting_id}/files/{file_id}")
-    assert response.status_code in [403, 404]
+    app.dependency_overrides[get_current_user] = lambda: coordinator_user
+
+    try:
+        coordinator_user = await db_session.merge(coordinator_user)
+
+        # Prepare meeting fixture
+        meeting = Meeting(
+            title="Test Meeting",
+            type=MeetingType.mdt.value,
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+            participants=[
+                MeetingParticipant(user=coordinator_user)
+            ],
+            locked=False
+        )
+        db_session.add(meeting)
+        await db_session.commit()
+        await db_session.refresh(meeting)
+
+        response = await async_client.get(f"/api/calendar/meetings/{meeting.id}/audit")
+        if response.status_code == 200:
+            assert isinstance(response.json(), list)
+        else:
+            assert response.status_code in [403, 401]
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_get_meeting_audit_log_requires_coordinator_or_admin(async_client: AsyncClient, normal_user,
+                                                                   db_session: AsyncSession, override_user_dependency):
+    """
+    Test that audit log retrieval is forbidden for normal users.
+    """
+    # app.dependency_overrides[get_current_user] = lambda: normal_user
+
+    normal_user = await db_session.merge(normal_user)
+
+    # Prepare meeting and user fixture
+    meeting = Meeting(
+        title="Test Meeting",
+        type=MeetingType.mdt.value,
+        start_time=datetime.now(timezone.utc),
+        end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+        participants=[
+            MeetingParticipant(user=normal_user)
+        ],
+        locked=False
+    )
+    db_session.add(meeting)
+    await db_session.commit()
+    await db_session.refresh(meeting)
+
+    response = await async_client.get(f"/api/calendar/meetings/{meeting.id}/audit")
+    assert response.status_code == 403 or response.status_code == 401

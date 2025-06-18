@@ -15,7 +15,6 @@ SERVICES_DB_URI = (
     f"postgresql+psycopg2://{services_db_user}:{services_db_password}@{services_db_host}:{services_db_port}/{services_db_name}"
 )
 
-
 # Google OAuth
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")

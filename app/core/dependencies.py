@@ -1,3 +1,4 @@
+"""Core dependencies"""
 from typing import Callable
 
 from fastapi import Request, Depends, HTTPException, status
@@ -48,3 +49,4 @@ def require_role(*roles: str) -> Callable:
 
 __all__ = ["get_current_user", "require_role"]
 
+require_coordinator = require_role("coordinator")

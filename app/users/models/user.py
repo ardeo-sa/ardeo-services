@@ -24,3 +24,11 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
     role = Column(SQLAlchemyEnum(UserRole), default=UserRole.user, nullable=False)
+
+    calendar_tokens = relationship(
+        "CalendarOAuthToken",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
+    meeting_links = relationship("MeetingParticipant", back_populates="user")

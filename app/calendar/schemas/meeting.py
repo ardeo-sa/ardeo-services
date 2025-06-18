@@ -2,14 +2,13 @@
 Pydantic schemas for meetings, including creation, response models,
 notes, and meeting metadata.
 """
-from pydantic import BaseModel, Field
 from enum import Enum
 from typing import List, Optional
 from datetime import datetime
 
 from sqlalchemy import Column, ForeignKey, Integer
 from sqlalchemy.orm import relationship
-
+from pydantic import BaseModel, Field
 
 class MeetingType(str, Enum):
     """
@@ -27,12 +26,12 @@ class MeetingCreate(BaseModel):
     """
     Schema for creating a new meeting.
     """
-    title: str = Field(..., example="Weekly MDT", min_length=3)
-    type: MeetingType = Field(..., example="mdt")
-    start_time: datetime = Field(..., example="2024-06-15T10:00:00Z")
-    end_time: datetime = Field(..., example="2024-06-15T11:00:00Z")
-    participant_ids: List[int] = Field(..., example=[2, 3])
-    patient_ids: Optional[List[int]] = None
+    title: str = Field(..., json_schema_extra={"example":"Weekly MDT"}, min_length=3)
+    type: MeetingType = Field(..., json_schema_extra={"example":"mdt"})
+    start_time: datetime = Field(..., json_schema_extra={"example":"2024-06-15T10:00:00Z"})
+    end_time: datetime = Field(..., json_schema_extra={"example":"2024-06-15T11:00:00Z"})
+    participants: List[int] = Field(..., json_schema_extra={"example":[2, 3]})
+    patients: Optional[List[int]] = None
 
     class Config:
         schema_extra = {
@@ -41,7 +40,7 @@ class MeetingCreate(BaseModel):
                 "type": "mdt",
                 "start_time": "2024-06-15T10:00:00Z",
                 "end_time": "2024-06-15T11:00:00Z",
-                "participant_ids": [2, 5, 9]
+                "participants": [2, 5, 9]
             }
         }
 
@@ -56,8 +55,9 @@ class MeetingResponse(BaseModel):
     start_time: datetime
     end_time: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class MeetingNoteType(str, Enum):
@@ -85,8 +85,9 @@ class MeetingNoteResponse(BaseModel):
     created_at: datetime
     author_id: Optional[int] = None
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class MeetingNotes(BaseModel):

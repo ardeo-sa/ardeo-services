@@ -1,4 +1,8 @@
-SERVICES_DB_URI=postgresql://user:password@host:port/services_db
+SERVICES_DB_USER=emdtuser
+SERVICES_DB_PASSWORD=f62da594ee4995ef4fbe526c8a55ada
+SERVICES_DB_HOST=localhost
+SERVICES_DB_NAME=services_db
+SERVICES_DB_PORT=5432
 
 # Google OAuth Credentials
 GOOGLE_CLIENT_ID=your-google-client-id

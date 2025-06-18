@@ -1,3 +1,4 @@
+"""API endpoints for calendar synchronization operations."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -21,9 +22,9 @@ def sync_calendar_events(
         events = calendar_sync.sync_user_calendar(current_user, db)
         return {"events": events}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to sync calendar: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to sync calendar: {e}") from e
 
 
 @router.post("/push/{meeting_id}", tags=["Calendar"])
@@ -39,6 +40,6 @@ def push_meeting(
         result = calendar_sync.push_meeting_to_external(meeting_id, current_user, db)
         return {"status": result}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to push meeting: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to push meeting: {e}") from e

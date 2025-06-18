@@ -29,6 +29,24 @@ from sqlalchemy.orm import relationship
 from app.database.services import Base
 
 class MeetingAuditLog(Base):
+    """
+       Represents an audit log entry for actions performed on meetings.
+
+       This model records who performed an action (user), what the action was
+       (e.g., adding or editing a note, uploading a file), and on which object
+       type and ID it occurred. Useful for tracking changes and maintaining
+       a history of user interactions with meeting-related resources.
+
+       Attributes:
+           id (int): Primary key.
+           meeting_id (int): ID of the related meeting.
+           user_id (int): ID of the user who performed the action.
+           action (str): Type of action (e.g., 'add_note', 'edit_note').
+           object_type (str): Type of object affected ('note', 'file', 'meeting').
+           object_id (int): ID of the object affected.
+           meta (JSON): Optional metadata about the action.
+           timestamp (datetime): Time when the action occurred.
+    """
     __tablename__ = "meeting_audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
