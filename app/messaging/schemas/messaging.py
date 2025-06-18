@@ -30,11 +30,9 @@ class MessageCreate(BaseModel):
     sender_id: UUID
     content: str
 
-    class Config:
-        """
-            Enables ORM mode for converting SQLAlchemy objects to Pydantic models.
-        """
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class MessageOut(BaseModel):
@@ -56,11 +54,9 @@ class MessageOut(BaseModel):
     read: bool
     content: str
 
-    class Config:
-        """
-            Enables ORM mode for converting SQLAlchemy objects to Pydantic models.
-        """
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class ConversationOut(BaseModel):
@@ -80,11 +76,9 @@ class ConversationOut(BaseModel):
     topic: Optional[str]
     meeting_id: Optional[int]
 
-    class Config:
-        """
-            Enables ORM mode for converting SQLAlchemy objects to Pydantic models.
-        """
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class ConversationCreate(BaseModel):
@@ -99,8 +93,6 @@ class ConversationCreate(BaseModel):
     topic: Optional[str] = None
     meeting_id: Optional[int] = None  # if linked to MDT
 
-    class Config:
-        """
-            Enables ORM mode for converting SQLAlchemy objects to Pydantic models.
-        """
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }

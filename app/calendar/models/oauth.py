@@ -42,10 +42,7 @@ class CalendarOAuthToken(Base):
     token_type = Column(String, nullable=True)
     scope = Column(String, nullable=True)
     expiry = Column(DateTime, nullable=True)
-
-    #token_data = Column(JSON, nullable=True) # use only for testing
-
+    token_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
-    user = relationship("User", back_populates="calendar_tokens")
+    # user = relationship("User", back_populates="calendar_tokens")
 

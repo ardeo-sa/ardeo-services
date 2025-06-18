@@ -24,9 +24,8 @@ def get_services_engine():
         raise ValueError("The SERVICES_DB_URI environment variable is not set or is empty.")
     return create_engine(SERVICES_DB_URI, echo=True)
 
-
-services_engine = None
-ServicesSessionLocal = None
+services_engine = get_services_engine()
+ServicesSessionLocal =sessionmaker(autocommit=False, autoflush=False, bind=services_engine)
 
 def init_services_db():
     """
@@ -58,3 +57,4 @@ def get_services_db() -> Session:
         yield db
     finally:
         db.close()
+

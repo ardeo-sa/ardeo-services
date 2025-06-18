@@ -24,7 +24,7 @@ from app.calendar.schemas.meeting import (
 from app.calendar.services import meeting as services
 from app.calendar.models.meeting import Meeting, SupportingFile, MeetingNote
 from app.calendar.models.audit import MeetingAuditLog
-from app.core.dependencies import get_current_user, require_role
+from app.core.dependencies import get_current_user, require_role, require_coordinator
 from app.database.services import get_services_db
 from app.calendar.services.audit import log_meeting_action
 from app.users.models.user import User
@@ -87,7 +87,7 @@ async def add_patient_to_meeting(
     meeting_id: int,
     patient_ids: List[int] = Body(...),
     db: AsyncSession = Depends(get_services_db),
-    current_user: User = Depends(require_role("coordinator")), # noqa: F841
+    current_user: User = Depends(require_coordinator), # noqa: F841
 ):
     """
     Add one or more patients to an MDT meeting.
@@ -345,6 +345,7 @@ async def download_supporting_file(
     return FileResponse(path=file.path, filename=file.name, media_type='application/octet-stream')
 
 
+
 @router.get("/", response_model=List[MeetingResponse])
 async def list_meetings(
     db: AsyncSession = Depends(get_services_db),
@@ -368,6 +369,7 @@ async def list_meetings(
     Returns:
         List[MeetingResponse]: A list of meetings.
     """
+
     return await services.list_meetings(
         db=db,
         skip=skip,
