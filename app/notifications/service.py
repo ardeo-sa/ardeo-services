@@ -133,16 +133,21 @@ class NotificationService:
                 List[Notification]: A list of active Notification objects.
         """
         now = datetime.now(timezone.utc)
-        return (
-            self.db.query(Notification)
-            .filter(Notification.user_id == user_id)
-            .filter(
-                (Notification.status == NotificationStatus.UNREAD)
-                | (
-                    (Notification.status == NotificationStatus.SNOOZED)
-                    & (Notification.snooze_until <= now)
+
+        stmt = (
+            select(Notification)
+            .where(
+                Notification.user_id == user_id,
+                or_(
+                    Notification.status == NotificationStatus.UNREAD,
+                    and_(
+                        Notification.status == NotificationStatus.SNOOZED,
+                        Notification.snooze_until <= now,
+                    ),
                 )
             )
             .order_by(Notification.created_at.desc())
-            .all()
         )
+
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
