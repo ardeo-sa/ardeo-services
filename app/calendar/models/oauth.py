@@ -48,4 +48,3 @@ class CalendarOAuthToken(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="calendar_tokens")
-

@@ -1,6 +1,4 @@
 """
-notifications.enums
-
 Defines enums for notification type and status.
 """
 
@@ -18,3 +16,4 @@ class NotificationStatus(str, Enum):
     READ = "read"
     SNOOZED = "snoozed"
     DISMISSED = "dismissed"
+

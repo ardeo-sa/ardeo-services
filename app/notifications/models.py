@@ -1,6 +1,4 @@
 """
-notifications.models
-
 Contains the SQLAlchemy ORM models for the Notification system.
 Defines notification types, statuses, and the Notification database table.
 """
@@ -10,20 +8,9 @@ from enum import Enum as PyEnum
 from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime, Text
 from sqlalchemy.orm import relationship
 
-from ..database.services import Base
-
-class NotificationType(PyEnum):
-    """Enumeration of notification delivery types."""
-    IN_APP = "in_app"
-    EMAIL = "email"
-    SMS = "sms"
-
-class NotificationStatus(PyEnum):
-    """Enumeration of the state of a notification."""
-    UNREAD = "unread"
-    READ = "read"
-    SNOOZED = "snoozed"
-    DISMISSED = "dismissed"
+from app.notifications.enums import NotificationType
+from app.notifications.enums import NotificationStatus
+from app.database.services import Base
 
 class Notification(Base):
     """
@@ -55,6 +42,17 @@ class Notification(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     sent_at = Column(DateTime, nullable=True)
     read_at = Column(DateTime, nullable=True)
+    snooze_until = Column(DateTime, nullable=True)
+
+    def is_active(self) -> bool:
+        """
+        Determine if the notification should be shown to the user.
+        """
+        if self.status in [NotificationStatus.DISMISSED, NotificationStatus.READ]:
+            return False
+        if self.status == NotificationStatus.SNOOZED and self.snooze_until:
+            return datetime.utcnow() >= self.snooze_until
+        return True
 
     def is_critical(self):
         """

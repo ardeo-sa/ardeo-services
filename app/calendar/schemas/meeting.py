@@ -2,10 +2,11 @@
 Pydantic schemas for meetings, including creation, response models,
 notes, and meeting metadata.
 """
-from pydantic import BaseModel, Field
 from enum import Enum
 from typing import List, Optional
 from datetime import datetime
+
+from pydantic import BaseModel, Field
 
 class MeetingType(str, Enum):
     """
@@ -23,11 +24,11 @@ class MeetingCreate(BaseModel):
     """
     Schema for creating a new meeting.
     """
-    title: str = Field(..., example="Weekly MDT", min_length=3)
-    type: MeetingType = Field(..., example="mdt")
-    start_time: datetime = Field(..., example="2024-06-15T10:00:00Z")
-    end_time: datetime = Field(..., example="2024-06-15T11:00:00Z")
-    participants: List[int] = Field(..., example=[2, 3])
+    title: str = Field(..., json_schema_extra={"example":"Weekly MDT"}, min_length=3)
+    type: MeetingType = Field(..., json_schema_extra={"example":"mdt"})
+    start_time: datetime = Field(..., json_schema_extra={"example":"2024-06-15T10:00:00Z"})
+    end_time: datetime = Field(..., json_schema_extra={"example":"2024-06-15T11:00:00Z"})
+    participants: List[int] = Field(..., json_schema_extra={"example":[2, 3]})
     patients: Optional[List[int]] = None
 
     class Config:
@@ -52,8 +53,9 @@ class MeetingResponse(BaseModel):
     start_time: datetime
     end_time: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class MeetingNoteType(str, Enum):
@@ -81,8 +83,9 @@ class MeetingNoteResponse(BaseModel):
     content: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class MeetingNotes(BaseModel):

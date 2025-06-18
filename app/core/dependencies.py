@@ -48,3 +48,5 @@ def require_role(*roles: str) -> Callable:
     return role_checker
 
 __all__ = ["get_current_user", "require_role"]
+
+require_coordinator = require_role("coordinator")

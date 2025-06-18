@@ -29,5 +29,6 @@ class OAuthTokenResponse(BaseModel):
     token_type: Optional[str]
     scope: Optional[str]
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
