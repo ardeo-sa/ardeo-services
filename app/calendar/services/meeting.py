@@ -12,7 +12,7 @@ from fastapi import Depends, HTTPException
 
 from app.calendar.models.meeting import Meeting, MeetingNote, MeetingParticipant, MeetingPatient
 from app.calendar.schemas.meeting import (MeetingCreate, MeetingNoteCreate,
-                                          MeetingType, MeetingDetail, MeetingNoteResponse)
+                                          MeetingType, MeetingDetail, MeetingNoteResponse, UserOut, PatientOut)
 from app.users.models.user import User
 from app.patients.models.patient import Patient
 from app.database.services import get_services_db
@@ -95,7 +95,7 @@ async def get_meeting(meeting_id: int, db: AsyncSession, current_user: User) -> 
         type=meeting.type,
         start_time=meeting.start_time,
         end_time=meeting.end_time,
-        participants=[p.user_id for p in meeting.participants],
+        participants=[UserOut.model_validate(p.user) for p in meeting.participants],
         notes=[
             MeetingNoteResponse(
                 id=n.id,
@@ -107,6 +107,7 @@ async def get_meeting(meeting_id: int, db: AsyncSession, current_user: User) -> 
             )
             for n in meeting.notes
         ],
+        patients=[PatientOut.model_validate(p.patient) for p in meeting.meeting_patients],
         locked=meeting.locked
     )
 

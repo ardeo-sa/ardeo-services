@@ -20,12 +20,12 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 import app.config as app_config
-from app.database.services import get_services_db, Base
-from app.users.models.user import User
+from app.database.services import get_services_db, Base, get_session_factory
+from app.users.models.user import User, UserRole
 from app.calendar.models.meeting import Meeting
 from app.core.dependencies import get_current_user
 
-# from user_factory import UserFactory
+from user_factory import UserFactory
 
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
@@ -58,6 +58,17 @@ def sync_client():
     Synchronous test client for use in non-async test functions.
     """
     return TestClient(app)
+
+
+@pytest.fixture
+def sync_db_session():
+    """Provides a regular (sync) SQLAlchemy session for sync-only tools like factory_boy."""
+    SessionLocal = get_session_factory()
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
 
 
 @pytest.fixture(autouse=True)
@@ -110,7 +121,7 @@ async def db_session():
 
 
 @pytest_asyncio.fixture
-async def async_client_with_session(db_session): # pylint: disable=redefined-outer-name
+async def async_client(db_session): # pylint: disable=redefined-outer-name
     """Returns an HTTPX AsyncClient with overridden DB session."""
     async def override_db():
         yield db_session
@@ -124,6 +135,14 @@ async def async_client_with_session(db_session): # pylint: disable=redefined-out
         yield client
 
 
+@pytest.fixture
+def user_factory(sync_db_session):
+    """fixture for user factory"""
+    # Inject the SQLAlchemy session into the factory
+    UserFactory._meta.sqlalchemy_session = sync_db_session
+    return UserFactory
+
+
 @pytest_asyncio.fixture
 async def normal_user(db_session, user_factory): # pylint: disable=redefined-outer-name
     """
@@ -132,12 +151,15 @@ async def normal_user(db_session, user_factory): # pylint: disable=redefined-out
     session = db_session
     user = user_factory(
         email=f"user_{uuid4().hex[:8]}@example.com",
-        role="user",
+        role= UserRole.NORMAL,
         name="Normal John"
     )
+    user_factory._meta.sqlalchemy_session.expunge(user)
+
     session.add(user)
     try:
         await session.commit()
+        await session.refresh(user)
     except Exception as e:
         print(f"❌ Commit failed for coordinator_user: {e}")
         raise
@@ -150,12 +172,15 @@ async def coordinator_user(db_session, user_factory): # pylint: disable=redefine
     session = db_session
     user = user_factory(
         email=f"coord_{uuid4().hex[:8]}@example.com",
-        role="coordinator",
+        role=UserRole.COORDINATOR,
         name="Jerry the Coordinator"
     )
+    user_factory._meta.sqlalchemy_session.expunge(user)
+
     session.add(user)
     try:
         await session.commit()
+        await session.refresh(user)
     except Exception as e:
         print(f"❌ Commit failed for coordinator_user: {e}")
         raise

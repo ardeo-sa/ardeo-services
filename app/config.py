@@ -5,17 +5,33 @@ from dotenv import load_dotenv
 # Load environment variables from .env file (useful for local dev)
 load_dotenv()
 
-# Database
-services_db_user = os.getenv("SERVICES_DB_USER")
-services_db_password = os.getenv("SERVICES_DB_PASSWORD")
-services_db_host = os.getenv("SERVICES_DB_HOST")
-services_db_name = os.getenv("SERVICES_DB_NAME")
-services_db_port = os.getenv("SERVICES_DB_PORT")
+def get_services_db_uri():
+    """
+        Returns the full DB URI from environment.
 
-SERVICES_DB_URI = (
-    f"postgresql+psycopg2://{services_db_user}:{services_db_password}@{services_db_host}:"
+        Tries SERVICES_DB_URI first; if not set, builds from individual components.
+
+        Raises:
+            ValueError: if neither full URI nor all components are set.
+        """
+    full_uri = os.getenv("SERVICES_DB_URI")
+    if full_uri:
+        return full_uri
+
+    # fallback to components
+    services_db_user = os.getenv("SERVICES_DB_USER")
+    services_db_password = os.getenv("SERVICES_DB_PASSWORD")
+    services_db_host = os.getenv("SERVICES_DB_HOST")
+    services_db_name = os.getenv("SERVICES_DB_NAME")
+    services_db_port = os.getenv("SERVICES_DB_PORT")
+
+    if not all([services_db_user, services_db_password, services_db_host, services_db_port, services_db_name]):
+        raise ValueError("Missing one or more required DB environment variables")
+
+    return (
+        f"postgresql+psycopg2://{services_db_user}:{services_db_password}@{services_db_host}:"
     f"{services_db_port}/{services_db_name}"
-)
+    )
 
 # Google OAuth
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")

@@ -8,6 +8,7 @@ from enum import Enum
 from sqlalchemy.sql import func
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
+from sqlalchemy.types import Enum as SQLEnum
 
 from app.database.services import Base
 from app.calendar.enums import MeetingType, MeetingNoteType
@@ -23,7 +24,7 @@ class Meeting(Base):
     title = Column(String, nullable=False)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
-    type = Column(Enum(MeetingType), nullable=False)
+    type = Column(SQLEnum(MeetingType), nullable=False)
     locked = Column(Boolean, default=False)
     external_event_id = Column(String, nullable=True, unique=True)
     external_provider = Column(String, nullable=True)  # "google" or "microsoft"
@@ -56,9 +57,12 @@ class MeetingNote(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.id"))
-    type = Column(Enum(MeetingNoteType), nullable=False)
+    type = Column(SQLEnum(MeetingNoteType), nullable=False)
     content = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(), # pylint: disable=not-callable
+        nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"))
     meeting = relationship("Meeting", back_populates="notes")
     author = relationship("User")

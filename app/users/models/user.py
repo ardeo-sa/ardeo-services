@@ -6,12 +6,21 @@ including their email, name, and role. The `role` field uses
 an enumerated type defined in the user schemas to distinguish
 between roles like 'user', 'admin', and 'coordinator'.
 """
-from sqlalchemy import Enum as SQLAlchemyEnum
+from enum import Enum
+
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.users.schemas.user import UserRole
 from app.database.services import Base
+
+
+class UserRole(str, Enum):
+    """Possible user roles"""
+    ADMIN = "admin"
+    COORDINATOR = "coordinator"
+    NORMAL = "normal"
 
 
 class User(Base):
@@ -23,7 +32,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
-    role = Column(SQLAlchemyEnum(UserRole), default=UserRole.user, nullable=False)
+    role = Column(SQLEnum(UserRole), default=UserRole.NORMAL, nullable=False)
 
     calendar_tokens = relationship(
         "CalendarOAuthToken",

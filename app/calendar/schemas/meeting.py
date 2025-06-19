@@ -143,3 +143,5 @@ class MeetingNoteUpdate(BaseModel):
     """
     type: MeetingNoteType
     content: str
+
+

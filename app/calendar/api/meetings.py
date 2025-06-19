@@ -61,7 +61,7 @@ async def create_meeting(
         HTTPException: If user attempts to create an MDT meeting without coordinator role.
     """
 
-    if meeting.type == MeetingType.mdt:
+    if meeting.type == MeetingType.MDT:
         require_role("coordinator")(current_user)
 
     return await services.create_meeting(meeting, db)
