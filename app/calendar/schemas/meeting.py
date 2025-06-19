@@ -2,24 +2,13 @@
 Pydantic schemas for meetings, including creation, response models,
 notes, and meeting metadata.
 """
-from enum import Enum
 from typing import List, Optional
 from datetime import datetime
 
 # from sqlalchemy import Column, ForeignKey, Integer
 # from sqlalchemy.orm import relationship
 from pydantic import BaseModel, Field
-
-class MeetingType(str, Enum):
-    """
-        Enum representing the type of meeting.
-
-        Options:
-        - `regular`: A standard meeting with general discussions.
-        - `mdt`: A multidisciplinary team (MDT) meeting involving collaborative decision-making across specialties.
-    """
-    REGULAR = "regular"
-    MDT = "mdt"
+from app.calendar.enums import MeetingType, MeetingNoteType
 
 
 class MeetingCreate(BaseModel):
@@ -59,20 +48,6 @@ class MeetingResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
-
-
-class MeetingNoteType(str, Enum):
-    """
-        Enum representing the type of note taken during a meeting.
-
-        Options:
-        - `discussion`: General discussion points.
-        - `recommendation`: Suggestions or advice based on discussion.
-        - `conclusion`: Final decisions or outcomes from the meeting.
-    """
-    DISCUSSION = "discussion"
-    RECOMMENDATION = "recommendation"
-    CONCLUSION = "conclusion"
 
 
 class MeetingNoteResponse(BaseModel):

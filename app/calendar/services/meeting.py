@@ -5,13 +5,13 @@ from typing import List, Optional
 from datetime import datetime
 
 from sqlalchemy import or_, and_, select
-from sqlalchemy.orm import Session, joinedload
+# from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from fastapi import Depends, HTTPException
 
 from app.calendar.models.meeting import Meeting, MeetingNote, MeetingParticipant, MeetingPatient
-from app.calendar.schemas.meeting import (MeetingCreate, MeetingNoteCreate, MeetingNoteType,
+from app.calendar.schemas.meeting import (MeetingCreate, MeetingNoteCreate,
                                           MeetingType, MeetingDetail, MeetingNoteResponse)
 from app.users.models.user import User
 from app.patients.models.patient import Patient
@@ -42,7 +42,7 @@ async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends
     for user_id in meeting_data.participants:
         db.add(MeetingParticipant(meeting_id=new_meeting.id, user_id=user_id))
 
-    if meeting_data.type == MeetingType.mdt and getattr(meeting_data, 'patient_ids', None):
+    if meeting_data.type == MeetingType.MDT and getattr(meeting_data, 'patient_ids', None):
         for pid in meeting_data.patient_ids:
             db.add(MeetingPatient(meeting_id=new_meeting.id, patient_id=pid))
 
@@ -136,7 +136,7 @@ async def add_patients_to_meeting(meeting_id: int, patient_ids: List[int], db: A
 
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
-    if meeting.type != MeetingType.mdt:
+    if meeting.type != MeetingType.MDT:
         raise HTTPException(status_code=400, detail="Patients can only be added to MDT meetings")
     if meeting.locked:
         raise HTTPException(status_code=403, detail="Meeting is locked. Cannot add patients.")
