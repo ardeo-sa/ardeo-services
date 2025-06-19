@@ -1,3 +1,4 @@
+"""Load env variables and set up all necessary configuration"""
 import os
 from dotenv import load_dotenv
 
@@ -12,7 +13,8 @@ services_db_name = os.getenv("SERVICES_DB_NAME")
 services_db_port = os.getenv("SERVICES_DB_PORT")
 
 SERVICES_DB_URI = (
-    f"postgresql+psycopg2://{services_db_user}:{services_db_password}@{services_db_host}:{services_db_port}/{services_db_name}"
+    f"postgresql+psycopg2://{services_db_user}:{services_db_password}@{services_db_host}:"
+    f"{services_db_port}/{services_db_name}"
 )
 
 # Google OAuth

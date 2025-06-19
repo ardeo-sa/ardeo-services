@@ -57,4 +57,3 @@ def get_services_db() -> Session:
         yield db
     finally:
         db.close()
-

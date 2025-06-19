@@ -11,7 +11,7 @@ from uuid import UUID
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user
 from app.database.services import get_services_db
@@ -23,14 +23,15 @@ from app.messaging.services.messaging_service import (
     create_message, get_conversation_messages,
     create_conversation, get_conversation_by_id
 )
+from app.users.models.user import User
 
 router = APIRouter(prefix="/api/messages", tags=["Messaging"])
 
 
 @router.post("/conversations/", response_model=ConversationOut)
-def create_conversation_endpoint(
+async def create_conversation_endpoint(
     conversation: ConversationCreate,
-    db: Session = Depends(get_services_db)
+    db: AsyncSession = Depends(get_services_db)
 ):
     """
     Create a new conversation between users.
@@ -46,9 +47,9 @@ def create_conversation_endpoint(
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationOut)
-def get_conversation_endpoint(
+async def get_conversation_endpoint(
     conversation_id: UUID,
-    db: Session = Depends(get_services_db)
+    db: AsyncSession = Depends(get_services_db)
 ):
     """
     Retrieve metadata about a specific conversation.
@@ -67,7 +68,7 @@ def get_conversation_endpoint(
 
 
 @router.post("/", response_model=MessageOut)
-def send_message(message: MessageCreate, db: Session = Depends(get_services_db)):
+async def send_message(message: MessageCreate, db: AsyncSession = Depends(get_services_db)):
     """
     Send a new message within a conversation.
 
@@ -80,8 +81,9 @@ def send_message(message: MessageCreate, db: Session = Depends(get_services_db))
     """
     return create_message(db, message)
 
+
 @router.get("/{conversation_id}", response_model=List[MessageOut])
-def fetch_messages(conversation_id: UUID, db: Session = Depends(get_services_db),
+async def fetch_messages(conversation_id: UUID, db: AsyncSession = Depends(get_services_db),
                    current_user: User = Depends(get_current_user)):
     """
         Retrieve all messages from a specific conversation.

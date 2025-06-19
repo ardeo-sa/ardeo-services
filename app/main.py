@@ -7,7 +7,7 @@ from app.api.router import router as api_router
 
 from  app.calendar.api.router import router as meetings_router
 # from app.database import services
-from app.database.services import Base, get_services_engine
+# from app.database.services import Base, get_services_engine
 
 app = FastAPI(title="Services Management App")
 # to create tables in db run below

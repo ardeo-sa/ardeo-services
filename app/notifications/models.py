@@ -3,10 +3,8 @@ Contains the SQLAlchemy ORM models for the Notification system.
 Defines notification types, statuses, and the Notification database table.
 """
 from datetime import datetime
-from enum import Enum as PyEnum
 
-from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, Enum, DateTime, Text
 
 from app.notifications.enums import NotificationType
 from app.notifications.enums import NotificationStatus

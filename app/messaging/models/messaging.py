@@ -10,7 +10,7 @@ from uuid import uuid4
 from datetime import datetime
 
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import Column, DateTime, Boolean, ForeignKey, Text, Table, Integer, String
+from sqlalchemy import Column, DateTime, Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database.services import Base
@@ -37,6 +37,7 @@ class Conversation(Base):
 
     # Relationships
     messages = relationship("Message", back_populates="conversation")
+
 
 class Message(Base):
     """
