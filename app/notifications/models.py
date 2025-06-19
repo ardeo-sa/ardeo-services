@@ -2,7 +2,7 @@
 Contains the SQLAlchemy ORM models for the Notification system.
 Defines notification types, statuses, and the Notification database table.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, Enum, DateTime, Text
 
@@ -37,7 +37,7 @@ class Notification(Base):
     type = Column(Enum(NotificationType), default=NotificationType.IN_APP)
     status = Column(Enum(NotificationStatus), default=NotificationStatus.UNREAD)
     message = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     sent_at = Column(DateTime, nullable=True)
     read_at = Column(DateTime, nullable=True)
     snooze_until = Column(DateTime, nullable=True)
@@ -49,7 +49,7 @@ class Notification(Base):
         if self.status in [NotificationStatus.DISMISSED, NotificationStatus.READ]:
             return False
         if self.status == NotificationStatus.SNOOZED and self.snooze_until:
-            return datetime.utcnow() >= self.snooze_until
+            return datetime.now(timezone.utc) >= self.snooze_until
         return True
 
     def is_critical(self):

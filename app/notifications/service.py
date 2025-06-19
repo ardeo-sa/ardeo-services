@@ -37,7 +37,7 @@ class NotificationService:
         Returns:
             Notification: Created Notification ORM object.
         """
-        db_notif = Notification(**notif_data.dict())
+        db_notif = Notification(**notif_data.model_dump())
         self.db.add(db_notif)
         await self.db.commit()
         await self.db.refresh(db_notif)

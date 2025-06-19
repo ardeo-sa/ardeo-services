@@ -21,7 +21,7 @@ Relationships:
 
 This log is critical for ensuring secure collaboration and traceable updates within MDT workflows.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, JSON
 from sqlalchemy.orm import relationship
@@ -56,7 +56,7 @@ class MeetingAuditLog(Base):
     object_type = Column(String, nullable=False)  # e.g., note, file, meeting
     object_id = Column(Integer, nullable=True)
     meta = Column(JSON, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User")
     meeting = relationship("Meeting")
