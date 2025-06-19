@@ -26,7 +26,7 @@ from app.calendar.models.meeting import Meeting, SupportingFile, MeetingNote
 from app.calendar.models.audit import MeetingAuditLog
 from app.core.dependencies import get_current_user, require_role, require_coordinator
 from app.database.services import get_services_db
-from app.calendar.services.audit import log_meeting_action
+from app.calendar.services.audit import MeetingAction, log_meeting_action
 from app.users.models.user import User
 from app.calendar.schemas.meeting import MeetingNoteUpdate
 
@@ -130,15 +130,15 @@ async def add_note_to_meeting(
 
     meeting_note = await services.add_meeting_note(meeting_id, note, current_user, db)
 
-    log_meeting_action(
-        db=db,
-        user=current_user,
+    action = MeetingAction(
         meeting_id=meeting_id,
         action="add_note",
         object_type="note",
         object_id=meeting_note.id,
         meta={"type": note.type}
     )
+    await log_meeting_action(db, current_user, action)
+
     return meeting_note
 
 
@@ -209,13 +209,14 @@ async def lock_meeting(
 
     meeting.locked = True
     await db.commit()
-    log_meeting_action(
-        db=db,
-        user=current_user,
+
+    action = MeetingAction(
         meeting_id=meeting_id,
         action="lock_meeting",
-        object_type="meeting"
+        object_type="note",
     )
+    await log_meeting_action(db, current_user, action)
+
     return {"detail": f"Meeting {meeting.id} locked."}
 
 
@@ -283,15 +284,14 @@ async def upload_supporting_file(
     await db.commit()
     await db.refresh(file_record)
 
-    log_meeting_action(
-        db=db,
-        user=current_user,
+    action = MeetingAction(
         meeting_id=meeting_id,
         action="upload_file",
         object_type="file",
         object_id=file_record.id,
         meta={"filename": file.filename, "size": file_record.file_size}
     )
+    await log_meeting_action(db, current_user, action)
 
     return {
         "file_id": file_record.id,
