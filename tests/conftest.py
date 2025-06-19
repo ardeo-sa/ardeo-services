@@ -18,14 +18,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from fastapi.testclient import TestClient
 
+from user_factory import UserFactory
+
 from app.main import app
 import app.config as app_config
 from app.database.services import get_services_db, Base, get_session_factory
 from app.users.models.user import User, UserRole
 from app.calendar.models.meeting import Meeting
 from app.core.dependencies import get_current_user
-
-from user_factory import UserFactory
 
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
@@ -63,8 +63,8 @@ def sync_client():
 @pytest.fixture
 def sync_db_session():
     """Provides a regular (sync) SQLAlchemy session for sync-only tools like factory_boy."""
-    SessionLocal = get_session_factory()
-    session = SessionLocal()
+    session_local = get_session_factory()
+    session = session_local()
     try:
         yield session
     finally:
@@ -136,10 +136,10 @@ async def async_client(db_session): # pylint: disable=redefined-outer-name
 
 
 @pytest.fixture
-def user_factory(sync_db_session):
+def user_factory(sync_db_session):  # pylint: disable=redefined-outer-name
     """fixture for user factory"""
     # Inject the SQLAlchemy session into the factory
-    UserFactory._meta.sqlalchemy_session = sync_db_session
+    UserFactory._meta.sqlalchemy_session = sync_db_session # pylint: disable=protected-access
     return UserFactory
 
 
@@ -154,7 +154,7 @@ async def normal_user(db_session, user_factory): # pylint: disable=redefined-out
         role= UserRole.NORMAL,
         name="Normal John"
     )
-    user_factory._meta.sqlalchemy_session.expunge(user)
+    user_factory._meta.sqlalchemy_session.expunge(user) # pylint: disable=protected-access
 
     session.add(user)
     try:
@@ -175,7 +175,7 @@ async def coordinator_user(db_session, user_factory): # pylint: disable=redefine
         role=UserRole.COORDINATOR,
         name="Jerry the Coordinator"
     )
-    user_factory._meta.sqlalchemy_session.expunge(user)
+    user_factory._meta.sqlalchemy_session.expunge(user) # pylint: disable=protected-access
 
     session.add(user)
     try:
