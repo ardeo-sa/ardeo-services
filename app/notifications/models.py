@@ -5,12 +5,13 @@ Defines notification types, statuses, and the Notification database table.
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime, Text
+from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime, Text, JSON
 from sqlalchemy.orm import relationship
 
 from app.notifications.enums import NotificationType
 from app.notifications.enums import NotificationStatus
 from app.database.services import Base
+
 
 class Notification(Base):
     """
@@ -63,3 +64,28 @@ class Notification(Base):
             bool: True if critical, False otherwise.
         """
         return False
+
+
+class WatchedItem(Base):
+    """
+        Represents a dynamic item that a user wants to monitor for changes or conditions.
+
+        Attributes:
+            id (int): Primary key.
+            user_id (int): ID of the user watching the item.
+            item_type (str): Type of item being watched (e.g., 'form', 'metric', 'pathway_step').
+            item_id (int): Unique identifier of the watched item.
+            trigger_conditions (dict): JSON-based conditions that must be met to trigger a notification.
+            created_at (datetime): Timestamp when the watch was created.
+    """
+    __tablename__ = "watched_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    item_type = Column(String, nullable=False)  # e.g., "form", "metric"
+    item_id = Column(Integer, nullable=False)
+    trigger_conditions = Column(JSON, nullable=True)  # Flexible condition config
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Optional relationship
+    user = relationship("User", back_populates="watched_items")

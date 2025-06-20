@@ -1,0 +1,19 @@
+[
+  {
+    "logic": "AND",
+    "rules": [
+      {
+        "model": "Metric",
+        "field": "average_recovery_time",
+        "operator": ">",
+        "value": 3
+      },
+      {
+        "model": "Meeting",
+        "field": "scheduled_within_hours",
+        "operator": "<=",
+        "value": 48
+      }
+    ]
+  }
+]

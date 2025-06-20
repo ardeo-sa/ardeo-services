@@ -1,15 +1,17 @@
 """
 Unit tests for the notification service in app.notifications.service.
 """
-import pytest
 from datetime import datetime, timedelta, timezone
 
+import pytest
+from httpx import AsyncClient
+
 from app.notifications.service import NotificationService
+from app.notifications.models import WatchedItem
 from app.notifications.schemas import NotificationCreate
 from app.notifications.triggers import NotificationTriggerService
 from app.notifications.enums import NotificationType, NotificationStatus
-from app.notifications import models
-from httpx import AsyncClient
+from app.calendar.models.meeting import Meeting
 
 
 @pytest.mark.asyncio
@@ -149,3 +151,38 @@ async def test_triggers_notify_task_assigned(db_session):
     assert notif.user_id == 7
     assert notif.task_id == 77
     assert "assigned" in notif.message
+
+
+@pytest.mark.asyncio
+async def test_evaluate_triggers_creates_notifications(db_session):
+    """
+    Test that evaluate_triggers creates a notification when compound conditions are met.
+    """
+
+    # Step 1: Set up mock Metric and Meeting
+    metric = Metric(user_id=8, average_recovery_time=4.5)
+    meeting = Meeting(user_id=8, scheduled_at=datetime.now(timezone.utc) + timedelta(hours=2))
+    db_session.add_all([metric, meeting])
+    await db_session.commit()
+
+    # Step 2: Load watched item with trigger conditions
+    data = load_trigger_conditions_fixture()[0]
+    watched = WatchedItem(
+        user_id=data["user_id"],
+        item_type=data["item_type"],
+        item_id=data["item_id"],
+        trigger_conditions=data["trigger_conditions"]
+    )
+    db_session.add(watched)
+    await db_session.commit()
+
+    # Step 3: Evaluate triggers
+    service = NotificationService(db_session)
+    notifs = await service.evaluate_triggers()
+
+    # Step 4: Verify notification created
+    assert len(notifs) == 1
+    notif = notifs[0]
+    assert notif.user_id == 8
+    assert notif.status == NotificationStatus.UNREAD
+    assert "Trigger condition met" in notif.body
