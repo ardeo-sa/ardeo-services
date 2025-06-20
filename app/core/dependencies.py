@@ -2,7 +2,6 @@
 from typing import Callable
 
 from fastapi import Request, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
 from app.users.models.user import User
 

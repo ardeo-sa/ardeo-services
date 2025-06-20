@@ -11,17 +11,16 @@ from sqlalchemy import Column, Integer, String, Date, ForeignKey, Enum as SQLAlc
 from sqlalchemy.orm import relationship
 
 from app.database.services import Base
-from app.users.models.user import User
 
 
 class Gender(str, enum.Enum):
     """
     Gender definitions
     """
-    male = "male"
-    female = "female"
-    other = "other"
-    unknown = "unknown"
+    MALE = "male"
+    FEMALE = "female"
+    OTHER = "other"
+    UNKNOWN = "unknown"
 
 
 class Patient(Base):
@@ -64,6 +63,8 @@ class Patient(Base):
         """
         return f"<Patient(id={self.id}, name='{self.first_name} {self.last_name}')>"
 
+
     @property
     def name(self) -> str:
+        """Dynamically combines first_name and last_name every time name is required"""
         return f"{self.first_name} {self.last_name}"

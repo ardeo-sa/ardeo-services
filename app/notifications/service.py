@@ -2,11 +2,10 @@
 Implements the core business logic for managing and dispatching notifications.
 """
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 
-from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import or_, and_, select
 
 from app.notifications.models import NotificationStatus, Notification
 from  app.notifications.schemas import NotificationCreate
@@ -38,7 +37,7 @@ class NotificationService:
         Returns:
             Notification: Created Notification ORM object.
         """
-        db_notif = Notification(**notif_data.dict())
+        db_notif = Notification(**notif_data.model_dump())
         self.db.add(db_notif)
         await self.db.commit()
         await self.db.refresh(db_notif)

@@ -8,7 +8,6 @@ OAuth tokens stored in the database.
 from datetime import datetime, timezone
 import os
 import asyncio
-from functools import partial
 
 import httpx
 from google.oauth2.credentials import Credentials
@@ -16,7 +15,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import HttpRequest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
+from fastapi import HTTPException
 
 from app.calendar.models.oauth import CalendarOAuthToken
 from app.users.models.user import User
@@ -90,7 +89,7 @@ async def fetch_microsoft_events(token_data: dict):
         response = await client.get(url, headers=headers)
 
     if response.status_code != 200:
-        raise Exception(f"Failed to fetch Microsoft events: {response.text}")
+        raise HTTPException(status_code=response.status_code, detail=f"Microsoft Calendar API failed {response.text}")
 
     return response.json().get("value", [])
 
@@ -174,7 +173,7 @@ async def _create_meeting_from_event(db: AsyncSession, user: User, event: dict, 
         title=title,
         start_time=start,
         end_time=end,
-        type=MeetingType.regular,  # External events are not MDTs
+        type=MeetingType.REGULAR,  # External events are not MDTs
         created_by_id=user.id,
         external_event_id=external_id,
         external_provider=provider,
