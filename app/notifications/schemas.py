@@ -1,7 +1,7 @@
 """
 Defines the Pydantic models (schemas) for validating and serializing notification data.
 """
-from typing import Optional
+from typing import Optional, Dict
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -52,3 +52,19 @@ class NotificationOut(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+
+class WatchedItemCreate(BaseModel):
+    """
+        Schema for creating a new WatchedItem.
+
+        Attributes:
+            user_id (int): ID of the user setting the watch.
+            item_type (str): Type of item (e.g., 'form', 'metric').
+            item_id (int): Unique identifier of the item to watch.
+            trigger_conditions (dict, optional): Rules for when to trigger a notification.
+    """
+    user_id: int
+    item_type: str
+    item_id: int
+    trigger_conditions: Optional[Dict] = None

@@ -7,6 +7,8 @@ Overrides FastAPI dependencies to inject test database sessions.
 import asyncio
 from uuid import uuid4
 import importlib
+import json
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
@@ -242,3 +244,18 @@ def override_user_dependency(normal_user): # pylint: disable=redefined-outer-nam
     app.dependency_overrides[get_current_user] = lambda: user
     yield
     app.dependency_overrides.clear()
+
+
+def load_trigger_conditions_fixture(filename: str = "trigger_conditions.json") -> list:
+    """
+    Load sample trigger conditions from a JSON fixture file.
+
+    Args:
+        filename (str): The name of the JSON file in the fixtures directory.
+
+    Returns:
+        list: A list of watched item trigger definitions, including logic and rules.
+    """
+    path = Path(__file__).parent / "fixtures" / filename
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)

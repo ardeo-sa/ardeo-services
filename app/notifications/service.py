@@ -2,13 +2,33 @@
 Implements the core business logic for managing and dispatching notifications.
 """
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
+import operator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_, and_, select
 
-from app.notifications.models import NotificationStatus, Notification
-from  app.notifications.schemas import NotificationCreate
+from app.notifications.models import NotificationStatus, Notification, WatchedItem
+from app.notifications.schemas import NotificationCreate, WatchedItemCreate
+from app.calendar.models.meeting import Meeting
+from app.messaging.models.messaging import Message
+
+# Maps model names to their ORM classes
+MODEL_LOOKUP = {
+    "Meeting": Meeting,
+    "Message": Message,
+    # Add more models as needed
+}
+
+# Maps operator strings to Python operator functions
+OPERATORS = {
+    ">": operator.gt,
+    ">=": operator.ge,
+    "<": operator.lt,
+    "<=": operator.le,
+    "==": operator.eq,
+    "!=": operator.ne,
+}
 
 
 class NotificationService:
@@ -150,3 +170,101 @@ class NotificationService:
 
         result = await self.db.execute(stmt)
         return result.scalars().all()
+
+
+    async def watch_item(self, watch_data: WatchedItemCreate) -> WatchedItem:
+        """
+        Register a user-defined watch on a dynamic item.
+
+        Args:
+            watch_data (WatchedItemCreate): Data defining which item to watch and under what conditions.
+
+        Returns:
+            WatchedItem: The created WatchedItem ORM object, persisted to the database.
+        """
+        db_watch = WatchedItem(**watch_data.model_dump())
+        self.db.add(db_watch)
+        await self.db.commit()
+        await self.db.refresh(db_watch)
+        return db_watch
+
+
+    async def evaluate_triggers(self) -> List[Notification]:
+        """
+        Evaluate all watched items and generate notifications based on trigger conditions.
+        Supports compound rules using AND/OR logic.
+        """
+        notifications = []
+        now = datetime.now(timezone.utc)
+
+        stmt = select(WatchedItem)
+        result = await self.db.execute(stmt)
+        watched_items = result.scalars().all()
+
+        for watch in watched_items:
+            conditions = watch.trigger_conditions or {}
+            logic = conditions.get("logic", "AND")
+            rules = conditions.get("rules", [])
+
+            rule_results = []
+
+            for rule in rules:
+                model_name = rule.get("model")
+                field = rule.get("field")
+                op = rule.get("operator")
+                value = rule.get("value")
+
+                model = MODEL_LOOKUP.get(model_name)
+                if not model:
+                    continue  # unknown model
+
+                # You may need custom logic per model/field here
+                query_value = await self._resolve_field(model, field, watch.user_id)
+
+                op_func = OPERATORS.get(op)
+                if op_func is None:
+                    continue  # unknown operator
+
+                rule_results.append(op_func(query_value, value))
+
+            if (logic == "AND" and all(rule_results)) or (logic == "OR" and any(rule_results)):
+                notif = NotificationCreate(
+                    user_id=watch.user_id,
+                    title=f"Alert for watched {watch.item_type}",
+                    body=f"Trigger condition met for item {watch.item_type}:{watch.item_id}",
+                    priority="MEDIUM",  # or derive from conditions
+                    status="UNREAD",
+                )
+                created = await self.create_notification(notif)
+                notifications.append(created)
+
+        return notifications
+
+
+    async def _resolve_field(self, model, field: str, user_id: int):
+        """
+        Dynamically resolve a field value for a model. Custom logic per field/model goes here.
+        """
+        if model.__name__ == "Meeting" and field == "scheduled_within_hours":
+            stmt = select(model).where(model.user_id == user_id)
+            result = await self.db.execute(stmt)
+            meetings = result.scalars().all()
+            if not meetings:
+                return float("inf")
+            # Example: min time from now to any scheduled meeting
+            return min([(m.scheduled_at - datetime.now(timezone.utc)).total_seconds() / 3600 for m in meetings])
+
+        elif model.__name__ == "Metric" and field == "average_recovery_time":
+            # This assumes you have a metric model to query
+            stmt = select(model).where(model.user_id == user_id)
+            result = await self.db.execute(stmt)
+            metric = result.scalar_one_or_none()
+            return getattr(metric, field, 0)
+
+        elif hasattr(model, field):
+            stmt = select(model).where(model.user_id == user_id)
+            result = await self.db.execute(stmt)
+            obj = result.scalar_one_or_none()
+            return getattr(obj, field, None)
+
+        return None

@@ -99,3 +99,25 @@ class SupportingFile(Base):
     uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     meeting = relationship("Meeting", backref="supporting_files")
+
+
+class MDTAssignment(Base):
+    """
+    Tracks MDT-specific assignments for users,
+    used to trigger notifications and manage responsibilities.
+    """
+    __tablename__ = "mdt_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    role = Column(String, nullable=True)  # Optional role (e.g. scribe, chair)
+    assigned_at = Column(DateTime(timezone=True), default=func.now())
+    notified = Column(Boolean, default=False)  # For notification tracking
+
+    meeting = relationship("Meeting", backref="mdt_assignments")
+    user = relationship("User", backref="mdt_assignments")
+
+    def __repr__(self):
+        return f"<MDTAssignment(meeting_id={self.meeting_id}, user_id={self.user_id}, role={self.role})>"
