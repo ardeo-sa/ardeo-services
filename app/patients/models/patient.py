@@ -10,17 +10,16 @@ import enum
 from sqlalchemy import Column, Integer, String, Date, ForeignKey, Enum as SQLEnum, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from app.database.services import Base
-from app.users.models.user import User
 
 
 class Gender(str, enum.Enum):
     """
     Gender definitions
     """
-    male = "male"
-    female = "female"
-    other = "other"
-    unknown = "unknown"
+    MALE = "male"
+    FEMALE = "female"
+    OTHER = "other"
+    UNKNOWN = "unknown"
 
 
 class Patient(Base):
@@ -63,11 +62,12 @@ class Patient(Base):
         """
         return f"<Patient(id={self.id}, name='{self.first_name} {self.last_name}')>"
 
+
     @property
     def name(self) -> str:
+      """Dynamically combines first_name and last_name every time name is required"""
         return f"{self.first_name} {self.last_name}"
-
-
+      
 class CareStep(Base):
     """
     Represents an actionable clinical step for a patient (e.g., diagnostic,
@@ -90,3 +90,4 @@ class CareStep(Base):
 
     def __repr__(self):
         return f"<CareStep(id={self.id}, name='{self.name}', due_date={self.due_date})>"
+

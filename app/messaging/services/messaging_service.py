@@ -13,17 +13,18 @@ Functions:
     - user_can_access_mdt: Checks if a user has rights to participate in MDT conversation.
 """
 from uuid import UUID
-from typing import List, Optional
+from typing import List
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from fastapi import HTTPException
 
-from app.calendar.models.meeting import Meeting, MeetingParticipant
+from app.calendar.models.meeting import MeetingParticipant
 from app.messaging.models.messaging import Message, Conversation
 from app.messaging.schemas.messaging import MessageCreate, ConversationCreate
 
 
-def create_message(db: Session, message: MessageCreate) -> Message:
+async def create_message(db: AsyncSession, message: MessageCreate) -> Message:
     """
     Create a new message in the database and enforce MDT access control if needed.
 
@@ -37,7 +38,7 @@ def create_message(db: Session, message: MessageCreate) -> Message:
     Raises:
         HTTPException: If user is not authorized to send messages in MDT conversation.
     """
-    conversation = get_conversation_by_id(db, message.conversation_id)
+    conversation = await get_conversation_by_id(db, message.conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
@@ -50,12 +51,12 @@ def create_message(db: Session, message: MessageCreate) -> Message:
         content=message.content,
     )
     db.add(msg)
-    db.commit()
-    db.refresh(msg)
+    await db.commit()
+    await db.refresh(msg)
     return msg
 
 
-def get_conversation_messages(db: Session, conversation_id: UUID, user_id: UUID) -> List[Message]:
+async def get_conversation_messages(db: AsyncSession, conversation_id: UUID, user_id: UUID) -> List[Message]:
     """
     Retrieve all messages for a conversation, enforcing MDT access control.
 
@@ -77,10 +78,12 @@ def get_conversation_messages(db: Session, conversation_id: UUID, user_id: UUID)
     if is_mdt_conversation(conversation) and not user_can_access_mdt(conversation, user_id, db):
         raise HTTPException(status_code=403, detail="User not authorized to access MDT conversation")
 
-    return db.query(Message).filter(Message.conversation_id == conversation_id).order_by(Message.timestamp).all()
+    stmt = select(Message).where(Message.conversation_id == conversation_id).order_by(Message.timestamp)
+    result = await db.execute(stmt)
+    return result.scalars().all()
 
 
-def create_conversation(db: Session, conversation: ConversationCreate) -> Conversation:
+async def create_conversation(db: AsyncSession, conversation: ConversationCreate) -> Conversation:
     """
     Create a new conversation with the specified participants.
 
@@ -101,7 +104,7 @@ def create_conversation(db: Session, conversation: ConversationCreate) -> Conver
     return new_convo
 
 
-def get_conversation_by_id(db: Session, conversation_id: UUID) -> Conversation:
+async def get_conversation_by_id(db: AsyncSession, conversation_id: UUID) -> Conversation:
     """
     Retrieve a conversation object by its UUID.
 
@@ -115,10 +118,12 @@ def get_conversation_by_id(db: Session, conversation_id: UUID) -> Conversation:
     Raises:
         HTTPException: If no conversation is found with the given ID.
     """
-    return db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    stmt = select(Conversation).where(Conversation.id == conversation_id).order_by(Conversation.created_at)
+    result = await db.execute(stmt)
+    return result.scalars().all()
 
 
-def is_mdt_conversation(conversation: Conversation) -> bool:
+async def is_mdt_conversation(conversation: Conversation) -> bool:
     """
     Determine whether a given conversation is linked to an MDT meeting.
 
@@ -131,7 +136,7 @@ def is_mdt_conversation(conversation: Conversation) -> bool:
     return conversation.meeting_id is not None
 
 
-def user_can_access_mdt(conversation: Conversation, user_id: UUID, db: Session) -> bool:
+async def user_can_access_mdt(conversation: Conversation, user_id: UUID, db: AsyncSession) -> bool:
     """
         Check whether a user is a participant in the MDT meeting tied to a conversation.
 

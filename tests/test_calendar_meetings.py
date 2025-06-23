@@ -32,7 +32,7 @@ async def test_create_regular_meeting(async_client: AsyncClient, normal_user, ov
 
     meeting_data = {
         "title": "Test Regular Meeting",
-        "type": MeetingType.regular.value,
+        "type": MeetingType.REGULAR.value,
         "start_time": "2025-01-01T10:00:00Z",
         "end_time": "2025-01-01T11:00:00Z",
         "locked": False,
@@ -63,7 +63,7 @@ async def test_create_mdt_meeting(async_client: AsyncClient, coordinator_user):
     try:
         meeting_data = {
             "title": "Test MDT Meeting",
-            "type": MeetingType.mdt.value,
+            "type": MeetingType.MDT.value,
             "start_time": "2025-01-01T10:00:00Z",
             "end_time": "2025-01-01T11:00:00Z",
             "participants": [coordinator_user.id],
@@ -93,7 +93,7 @@ async def test_create_mdt_meeting_requires_coordinator_role(async_client: AsyncC
 
     meeting_data = {
         "title": "Test MDT Meeting set-up by regular user",
-        "type": MeetingType.mdt.value,
+        "type": MeetingType.MDT.value,
         "start_time": "2025-01-01T10:00:00Z",
         "end_time": "2025-01-01T11:00:00Z",
         "participants": [normal_user.id],
@@ -122,7 +122,7 @@ async def test_user_is_meeting_participant(async_client: AsyncClient, normal_use
     # Create meeting with the user as a participant
     meeting = Meeting(
         title="Test Meeting",
-        type=MeetingType.mdt.value,
+        type=MeetingType.MDT.value,
         start_time=datetime.now(timezone.utc),
         end_time=datetime.now(timezone.utc) + timedelta(hours=1),
         participants=[
@@ -172,7 +172,7 @@ async def test_get_meeting_by_id(async_client: AsyncClient, normal_user,
     # Prepare meeting and user fixture
     meeting = Meeting(
         title="Test Meeting",
-        type=MeetingType.mdt.value,
+        type=MeetingType.MDT.value,
         start_time=datetime.now(timezone.utc),
         end_time=datetime.now(timezone.utc) + timedelta(hours=1),
         participants=[
@@ -206,7 +206,7 @@ async def test_add_note_to_meeting(async_client: AsyncClient, normal_user,
     # Prepare meeting and user fixture
     meeting = Meeting(
         title="Test Meeting",
-        type=MeetingType.mdt.value,
+        type=MeetingType.MDT.value,
         start_time=datetime.now(timezone.utc),
         end_time=datetime.now(timezone.utc) + timedelta(hours=1),
         participants=[
@@ -219,7 +219,7 @@ async def test_add_note_to_meeting(async_client: AsyncClient, normal_user,
     await db_session.refresh(meeting)
 
     note_data = {
-        "type": MeetingNoteType.recommendation.value,
+        "type": MeetingNoteType.RECOMMENDATION.value,
         "content": "This is a test recommendation note."
     }
 
@@ -245,7 +245,7 @@ async def test_edit_note_only_by_author(async_client: AsyncClient, normal_user,
     # Prepare meeting and user fixture
     meeting = Meeting(
         title="Test Meeting",
-        type=MeetingType.mdt.value,
+        type=MeetingType.MDT.value,
         start_time=datetime.now(timezone.utc),
         end_time=datetime.now(timezone.utc) + timedelta(hours=1),
         participants=[
@@ -259,7 +259,7 @@ async def test_edit_note_only_by_author(async_client: AsyncClient, normal_user,
 
     note_id = 1
     edit_payload = {
-        "type": MeetingNoteType.discussion.value,
+        "type": MeetingNoteType.DISCUSSION.value,
         "content": "Edited note content"
     }
 
@@ -286,7 +286,7 @@ async def test_lock_meeting_success(async_client: AsyncClient, coordinator_user,
         # Prepare meeting fixture
         meeting = Meeting(
             title="Test Meeting",
-            type=MeetingType.mdt.value,
+            type=MeetingType.MDT.value,
             start_time=datetime.now(timezone.utc),
             end_time=datetime.now(timezone.utc) + timedelta(hours=1),
             participants=[
@@ -321,7 +321,7 @@ async def test_lock_meeting_requires_proper_role(async_client: AsyncClient, norm
     # Prepare meeting and user fixture
     meeting = Meeting(
         title="Test Meeting",
-        type=MeetingType.mdt.value,
+        type=MeetingType.MDT.value,
         start_time=datetime.now(timezone.utc),
         end_time=datetime.now(timezone.utc) + timedelta(hours=1),
         participants=[
@@ -353,7 +353,7 @@ async def test_add_patient_to_meeting_as_coordinator(async_client: AsyncClient, 
         # Prepare meeting fixture
         meeting = Meeting(
             title="Test Meeting",
-            type=MeetingType.mdt.value,
+            type=MeetingType.MDT.value,
             start_time=datetime.now(timezone.utc),
             end_time=datetime.now(timezone.utc) + timedelta(hours=1),
             participants=[
@@ -385,7 +385,7 @@ async def test_add_patient_to_meeting_requires_coordinator(async_client: AsyncCl
     # Prepare meeting fixture
     meeting = Meeting(
         title="Test Meeting",
-        type=MeetingType.mdt.value,
+        type=MeetingType.MDT.value,
         start_time=datetime.now(timezone.utc),
         end_time=datetime.now(timezone.utc) + timedelta(hours=1),
         participants=[
@@ -417,7 +417,7 @@ async def test_upload_supporting_file(async_client: AsyncClient, coordinator_use
         # Create a meeting
         meeting = Meeting(
             title="Test Meeting",
-            type=MeetingType.mdt.value,
+            type=MeetingType.MDT.value,
             start_time=datetime.now(timezone.utc),
             end_time=datetime.now(timezone.utc) + timedelta(hours=1),
             participants=[
@@ -459,7 +459,7 @@ async def test_get_meeting_audit_log_as_admin(async_client: AsyncClient, coordin
         # Prepare meeting fixture
         meeting = Meeting(
             title="Test Meeting",
-            type=MeetingType.mdt.value,
+            type=MeetingType.MDT.value,
             start_time=datetime.now(timezone.utc),
             end_time=datetime.now(timezone.utc) + timedelta(hours=1),
             participants=[
@@ -493,7 +493,7 @@ async def test_get_meeting_audit_log_requires_coordinator_or_admin(async_client:
     # Prepare meeting and user fixture
     meeting = Meeting(
         title="Test Meeting",
-        type=MeetingType.mdt.value,
+        type=MeetingType.MDT.value,
         start_time=datetime.now(timezone.utc),
         end_time=datetime.now(timezone.utc) + timedelta(hours=1),
         participants=[

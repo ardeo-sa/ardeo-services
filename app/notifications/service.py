@@ -5,9 +5,8 @@ from datetime import datetime, timezone
 from typing import List, Optional
 import operator
 
-from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import or_, and_, select
 
 from app.notifications.models import NotificationStatus, Notification, WatchedItem
 from app.notifications.schemas import NotificationCreate, WatchedItemCreate
@@ -58,7 +57,7 @@ class NotificationService:
         Returns:
             Notification: Created Notification ORM object.
         """
-        db_notif = Notification(**notif_data.dict())
+        db_notif = Notification(**notif_data.model_dump())
         self.db.add(db_notif)
         await self.db.commit()
         await self.db.refresh(db_notif)

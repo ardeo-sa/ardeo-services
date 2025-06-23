@@ -5,9 +5,10 @@ This module provides Pydantic models to serialize and validate the structure
 of OAuth token responses returned by external calendar providers such as
 Google and Microsoft.
 """
-from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+
+from pydantic import BaseModel
 
 class OAuthTokenResponse(BaseModel):
     """

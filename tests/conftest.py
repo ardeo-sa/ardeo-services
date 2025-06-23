@@ -24,11 +24,11 @@ from user_factory import UserFactory
 
 from app.main import app
 import app.config as app_config
-
-from app.database.services import get_services_db, Base
-from app.users.models.user import User
+from app.database.services import get_services_db, Base, get_session_factory
+from app.users.models.user import User, UserRole
 from app.calendar.models.meeting import Meeting
 from app.core.dependencies import get_current_user
+
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 engine = create_async_engine(
@@ -37,7 +37,9 @@ engine = create_async_engine(
     poolclass=NullPool,
 )
 AsyncTestingSessionLocal = sessionmaker(
-    bind=engine, class_=AsyncSession, expire_on_commit=False
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False
 )
 
 
@@ -53,12 +55,22 @@ app.dependency_overrides[get_services_db] = override_get_db
 
 
 @pytest.fixture
-# pylint: disable=redefined-outer-name
-def client():
+def sync_client():
     """
     Synchronous test client for use in non-async test functions.
     """
     return TestClient(app)
+
+
+@pytest.fixture
+def sync_db_session():
+    """Provides a regular (sync) SQLAlchemy session for sync-only tools like factory_boy."""
+    session_local = get_session_factory()
+    session = session_local()
+    try:
+        yield session
+    finally:
+        session.close()
 
 
 @pytest.fixture(autouse=True)
@@ -91,8 +103,7 @@ def event_loop():
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-# pylint: disable=redefined-outer-name
-async def db_engine():
+async def create_db_schema():
     """
     Create DB schema once for all tests.
     """
@@ -103,7 +114,6 @@ async def db_engine():
 
 
 @pytest_asyncio.fixture
-# pylint: disable=redefined-outer-name
 async def db_session():
     """
     Creates a new session for each test.
@@ -113,49 +123,45 @@ async def db_session():
 
 
 @pytest_asyncio.fixture
-async def async_client(db_session: AsyncSession):
-    """
-    Returns an HTTPX AsyncClient with test overrides.
-    """
+async def async_client(db_session): # pylint: disable=redefined-outer-name
+    """Returns an HTTPX AsyncClient with overridden DB session."""
     async def override_db():
         yield db_session
 
     app.dependency_overrides[get_services_db] = override_db
 
-    transport = ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test"
+    ) as client:
         yield client
 
 
-@pytest_asyncio.fixture
-# pylint: disable=redefined-outer-name
-def user_factory(db_session):
-    """
-    Returns a factory for generating test users.
-    """
-    # pylint: disable=protected-access
-    UserFactory._meta.sqlalchemy_session = db_session
-
-    def factory(**kwargs):
-        return UserFactory(**kwargs)
-
-    return factory
+@pytest.fixture
+def user_factory(sync_db_session):  # pylint: disable=redefined-outer-name
+    """fixture for user factory"""
+    # Inject the SQLAlchemy session into the factory
+    UserFactory._meta.sqlalchemy_session = sync_db_session # pylint: disable=protected-access
+    return UserFactory
 
 
 @pytest_asyncio.fixture
-# pylint: disable=redefined-outer-name
-async def normal_user(db_session, user_factory):
+async def normal_user(db_session, user_factory): # pylint: disable=redefined-outer-name
     """
     Create a normal user for testing.
     """
+    session = db_session
     user = user_factory(
         email=f"user_{uuid4().hex[:8]}@example.com",
-        role="user",
+        role= UserRole.NORMAL,
         name="Normal John"
     )
-    db_session.add(user)
+    user_factory._meta.sqlalchemy_session.expunge(user) # pylint: disable=protected-access
+
+    session.add(user)
     try:
-        await db_session.commit()
+        await session.commit()
+        await session.refresh(user)
     except Exception as e:
         print(f"❌ Commit failed for coordinator_user: {e}")
         raise
@@ -163,17 +169,20 @@ async def normal_user(db_session, user_factory):
 
 
 @pytest_asyncio.fixture
-# pylint: disable=redefined-outer-name
-async def coordinator_user(db_session, user_factory):
+async def coordinator_user(db_session, user_factory): # pylint: disable=redefined-outer-name
     """Create a coordinator user."""
+    session = db_session
     user = user_factory(
         email=f"coord_{uuid4().hex[:8]}@example.com",
-        role="coordinator",
+        role=UserRole.COORDINATOR,
         name="Jerry the Coordinator"
     )
-    db_session.add(user)
+    user_factory._meta.sqlalchemy_session.expunge(user) # pylint: disable=protected-access
+
+    session.add(user)
     try:
-        await db_session.commit()
+        await session.commit()
+        await session.refresh(user)
     except Exception as e:
         print(f"❌ Commit failed for coordinator_user: {e}")
         raise
@@ -181,19 +190,21 @@ async def coordinator_user(db_session, user_factory):
 
 
 @pytest_asyncio.fixture
-async def mock_meeting(db_session, coordinator_user):
+async def mock_meeting(db_session, coordinator_user): # pylint: disable=redefined-outer-name
     """Create a sample meeting for testing."""
+    session = db_session
+    coord = coordinator_user
     meeting = Meeting(
         title="MDT Session",
         type="mdt",
-        created_by=coordinator_user.id
+        created_by=coord.id
     )
-    db_session.add(meeting)
-    await db_session.commit()
+    session.add(meeting)
+    await session.commit()
     return meeting
 
 
-def override_user(user):
+def override_user(user: User):
     """
     Returns a FastAPI override for get_current_user with the given user.
     """
@@ -203,31 +214,34 @@ def override_user(user):
 
 
 @pytest_asyncio.fixture
-async def override_current_user_normal(normal_user: User):
+async def override_current_user_normal(normal_user): # pylint: disable=redefined-outer-name
     """
     Override FastAPI dependency to use a normal user.
     """
-    app.dependency_overrides[get_current_user] = override_user(normal_user)
+    user = normal_user
+    app.dependency_overrides[get_current_user] = override_user(user)
     yield
     app.dependency_overrides[get_current_user] = get_current_user
 
 
 @pytest_asyncio.fixture
-async def override_current_user_coord(coordinator_user: User):
+async def override_current_user_coord(coordinator_user): # pylint: disable=redefined-outer-name
     """
     Override FastAPI user dependency with a coordinator user.
     """
-    app.dependency_overrides[get_current_user] = override_user(coordinator_user)
+    user = coordinator_user
+    app.dependency_overrides[get_current_user] = override_user(user)
     yield
     app.dependency_overrides[get_current_user] = get_current_user
 
 
 @pytest.fixture
-def override_user_dependency(normal_user: User):
+def override_user_dependency(normal_user): # pylint: disable=redefined-outer-name
     """
     Override FastAPI dependency for get_current_user in sync tests.
     """
-    app.dependency_overrides[get_current_user] = lambda: normal_user
+    user = normal_user
+    app.dependency_overrides[get_current_user] = lambda: user
     yield
     app.dependency_overrides.clear()
 
