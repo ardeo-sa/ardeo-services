@@ -30,14 +30,13 @@ from app.notifications.schemas import NotificationCreate
 from app.notifications.enums import NotificationType
 from app.notifications.service import NotificationService
 
-from app.patients.models import CareStep  # hypothetical model
-from app.meetings.models import MDTAssignment  # hypothetical model
-from app.tasks.models import Task  # hypothetical model
+from app.patients.models.patient import CareStep
+from app.calendar.models.meeting import MDTAssignment
+from app.tasks.models import Task
 from app.reports.models import ClinicalReport  # hypothetical model
 
 logger = logging.getLogger(__name__)
 
-!!TODO generate the missing models
 
 async def generate_system_notifications(db: AsyncSession) -> List[Notification]:
     """

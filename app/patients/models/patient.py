@@ -7,9 +7,8 @@ contact details, and a link to their primary clinician.
 """
 import enum
 
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, Enum as SQLAlchemyEnum
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Enum as SQLEnum, DateTime, Boolean
 from sqlalchemy.orm import relationship
-
 from app.database.services import Base
 from app.users.models.user import User
 
@@ -34,7 +33,7 @@ class Patient(Base):
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     date_of_birth = Column(Date, nullable=True)
-    gender = Column(SQLAlchemyEnum(Gender), nullable=True)
+    gender = Column(SQLEnum(Gender), nullable=True)
     medical_record_number = Column(String, unique=True, nullable=True)
 
     contact_info = Column(String, nullable=True)
@@ -67,3 +66,27 @@ class Patient(Base):
     @property
     def name(self) -> str:
         return f"{self.first_name} {self.last_name}"
+
+
+class CareStep(Base):
+    """
+    Represents an actionable clinical step for a patient (e.g., diagnostic,
+    treatment, or follow-up), with due/completion dates.
+
+    Used for care pathway tracking and notification logic.
+    """
+    __tablename__ = "care_steps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    due_date = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    patient = relationship("Patient", backref="care_steps")
+
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    owner = relationship("User", backref="owned_care_steps")
+
+    def __repr__(self):
+        return f"<CareStep(id={self.id}, name='{self.name}', due_date={self.due_date})>"
