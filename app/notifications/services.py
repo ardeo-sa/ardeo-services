@@ -13,6 +13,7 @@ from app.notifications.schemas import NotificationCreate, WatchedItemCreate, Not
 from app.notifications.utils.delivery import send_email_notification, send_whatsapp_message, save_notification_to_file
 from app.calendar.models.meeting import Meeting
 from app.messaging.models.messaging import Message
+from app.notifications.utils.preferences import get_user_preferences
 
 # Maps model names to their ORM classes
 MODEL_LOOKUP = {
@@ -74,7 +75,7 @@ class NotificationService:
         notif.sent_at = datetime.now(timezone.utc)
 
         # Get delivery methods from preference
-        pref = await self.get_user_preference(notif.user_id)
+        pref = await get_user_preferences(self.db, notif.user_id)
         methods = pref.delivery_methods if pref else ["in_app"]
 
         for method in methods:
@@ -301,9 +302,3 @@ class NotificationService:
         await self.db.commit()
         await self.db.refresh(existing)
         return existing
-
-
-    async def get_user_preference(self, user_id: int) -> Optional[NotificationPreference]:
-        stmt = select(NotificationPreference).where(NotificationPreference.user_id == user_id)
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()

@@ -16,11 +16,13 @@ from email.message import EmailMessage
 from pathlib import Path
 from datetime import datetime
 
+from sqlalchemy.ext.asyncio import AsyncSession
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
 
 from app.users.services import get_user_email, get_user_whatsapp_number
-from app.notifications.models import Notification
+from app.notifications.models import Notification, NotificationStatus
+from app.notifications.utils.preferences import get_user_preferences
 
 
 async def send_email_notification(notification: Notification):
@@ -113,3 +115,43 @@ async def save_notification_to_file(notification: Notification):
     except (OSError, IOError) as e:
         # Replace with logging later
         print(f"[File Save Error] Failed to write notification to file: {e}")
+
+
+async def process_queued_notifications(db: AsyncSession):
+    """
+    Process all pending notifications that need to be delivered.
+
+    Fetches notifications with status 'QUEUED' or similar,
+    determines delivery preferences, and attempts to send via
+    each configured channel (email, WhatsApp, local file, etc).
+
+    This function is meant to run periodically in a background task.
+
+    Raises:
+        None. Errors are caught and logged internally.
+    """
+
+    # Query for queued notifications
+    pending_notifications = await Notification.filter(status=NotificationStatus.QUEUED).all()
+
+    for notification in pending_notifications:
+        try:
+            prefs = await get_user_preferences(db, notification.user_id)
+            delivery_methods = prefs.delivery_methods if prefs else ["in_app"]
+
+            if "email" in delivery_methods:
+                await send_email_notification(notification)
+
+            if "whatsapp" in delivery_methods:
+                await send_whatsapp_message(notification)
+
+            if "file" in delivery_methods:
+                await save_notification_to_file(notification)
+
+            notification.status = NotificationStatus.SENT
+            notification.sent_at = datetime.utcnow()
+            await notification.save()
+
+        except Exception as e:
+            # Replace with proper logging
+            print(f"[Dispatch Error] Failed to process notification {notification.id}: {e}")
