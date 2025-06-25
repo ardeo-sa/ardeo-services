@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from httpx import AsyncClient
 
-from app.notifications.service import NotificationService
+from app.notifications.services import NotificationService
 from app.notifications.models import WatchedItem
 from app.notifications.schemas import NotificationCreate
 from app.notifications.triggers import NotificationTriggerService

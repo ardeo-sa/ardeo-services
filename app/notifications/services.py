@@ -8,8 +8,9 @@ import operator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_, and_, select
 
-from app.notifications.models import NotificationStatus, Notification, WatchedItem
-from app.notifications.schemas import NotificationCreate, WatchedItemCreate
+from app.notifications.models import NotificationStatus, Notification, WatchedItem, NotificationPreference
+from app.notifications.schemas import NotificationCreate, WatchedItemCreate, NotificationPreferenceCreate
+from app.notifications.utils.delivery import send_email_notification, send_whatsapp_message, save_notification_to_file
 from app.calendar.models.meeting import Meeting
 from app.messaging.models.messaging import Message
 
@@ -71,6 +72,19 @@ class NotificationService:
             notif (Notification): The notification to send.
         """
         notif.sent_at = datetime.now(timezone.utc)
+
+        # Get delivery methods from preference
+        pref = await self.get_user_preference(notif.user_id)
+        methods = pref.delivery_methods if pref else ["in_app"]
+
+        for method in methods:
+            if method == "email":
+                await send_email_notification(notif)
+            elif method == "whatsapp":
+                await send_whatsapp_message(notif)
+            elif method == "file":
+                await save_notification_to_file(notif)
+
         await self.db.commit()
 
     async def mark_as_read(self, notification_id: int) -> Notification:
@@ -165,7 +179,7 @@ class NotificationService:
                     ),
                 )
             )
-            .order_by(Notification.created_at.desc())
+            .order_by(Notification.priority.desc(), Notification.created_at.desc())
         )
 
         result = await self.db.execute(stmt)
@@ -268,3 +282,28 @@ class NotificationService:
             return getattr(obj, field, None)
 
         return None
+
+
+    async def create_or_update_preference(self, user_id: int, pref_data: NotificationPreferenceCreate) \
+            -> NotificationPreference:
+        stmt = select(NotificationPreference).where(NotificationPreference.user_id == user_id)
+        result = await self.db.execute(stmt)
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            for field, value in pref_data.model_dump().items():
+                setattr(existing, field, value)
+            existing.updated_at = datetime.now(timezone.utc)
+        else:
+            existing = NotificationPreference(user_id=user_id, **pref_data.model_dump())
+            self.db.add(existing)
+
+        await self.db.commit()
+        await self.db.refresh(existing)
+        return existing
+
+
+    async def get_user_preference(self, user_id: int) -> Optional[NotificationPreference]:
+        stmt = select(NotificationPreference).where(NotificationPreference.user_id == user_id)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
