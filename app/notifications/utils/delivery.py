@@ -20,6 +20,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
 
+from app.core.config import (
+    SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM,
+    TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM
+)
 from app.users.services import get_user_email, get_user_whatsapp_number
 from app.notifications.models import Notification, NotificationStatus
 from app.notifications.utils.preferences import get_user_preferences
@@ -44,13 +48,13 @@ async def send_email_notification(notification: Notification):
 
         msg = EmailMessage()
         msg["Subject"] = notification.title
-        msg["From"] = "noreply@yourdomain.com"
+        msg["From"] = SMTP_FROM
         msg["To"] = user_email
         msg.set_content(notification.body)
 
-        with smtplib.SMTP("smtp.yourmail.com", 587, timeout=10) as smtp:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as smtp:
             smtp.starttls()
-            smtp.login("your_user", "your_password")
+            smtp.login(SMTP_USER, SMTP_PASSWORD)
             smtp.send_message(msg)
 
     except (smtplib.SMTPException, ConnectionError, TimeoutError) as e:
@@ -74,10 +78,10 @@ async def send_whatsapp_message(notification: Notification):
         if not user_number:
             return
 
-        client = Client("TWILIO_SID", "TWILIO_AUTH_TOKEN")
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         client.messages.create(
             body=f"{notification.title}\n\n{notification.body}",
-            from_="whatsapp:+14155238886",  # Twilio Sandbox number
+            from_=TWILIO_WHATSAPP_FROM,
             to=f"whatsapp:{user_number}"
         )
 
@@ -113,7 +117,6 @@ async def save_notification_to_file(notification: Notification):
         (base_path / filename).write_text(str(data), encoding="utf-8")
 
     except (OSError, IOError) as e:
-        # Replace with logging later
         print(f"[File Save Error] Failed to write notification to file: {e}")
 
 
@@ -153,5 +156,4 @@ async def process_queued_notifications(db: AsyncSession):
             await notification.save()
 
         except Exception as e:
-            # Replace with proper logging
             print(f"[Dispatch Error] Failed to process notification {notification.id}: {e}")
