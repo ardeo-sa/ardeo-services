@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.notifications.service import NotificationService
+from app.notifications.services import NotificationService
 from app.notifications.schemas import NotificationCreate
 from app.notifications.enums import NotificationType
 

@@ -65,9 +65,10 @@ class Patient(Base):
 
     @property
     def name(self) -> str:
-      """Dynamically combines first_name and last_name every time name is required"""
+        """Dynamically combines first_name and last_name every time name is required"""
         return f"{self.first_name} {self.last_name}"
-      
+
+
 class CareStep(Base):
     """
     Represents an actionable clinical step for a patient (e.g., diagnostic,

@@ -4,12 +4,14 @@ Defines notification types, statuses, and the Notification database table.
 """
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime, Text, JSON
+from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime, Text, JSON, Enum as SQLEnum
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from app.notifications.enums import NotificationType
 from app.notifications.enums import NotificationStatus
 from app.database.services import Base
+from app.notifications.enums import NotificationPriority
 
 
 class Notification(Base):
@@ -43,6 +45,8 @@ class Notification(Base):
     sent_at = Column(DateTime, nullable=True)
     read_at = Column(DateTime, nullable=True)
     snooze_until = Column(DateTime, nullable=True)
+    priority = Column(SQLEnum(NotificationPriority), nullable=False, default=NotificationPriority.MEDIUM)
+    is_system = Column(Boolean, default=False)  # True if sent by admin/system
 
     def is_active(self) -> bool:
         """
@@ -84,7 +88,27 @@ class WatchedItem(Base):
     item_type = Column(String, nullable=False)  # e.g., "form", "metric"
     item_id = Column(Integer, nullable=False)
     trigger_conditions = Column(JSON, nullable=True)  # Flexible condition config
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
 
-    # Optional relationship
     user = relationship("User", back_populates="watched_items")
+
+
+class NotificationPreference(Base):
+    __tablename__ = "notification_preferences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+
+    # JSON-encoded structure: {'trigger_rules': [...], 'logic': 'AND' | 'OR'}
+    trigger_conditions = Column(JSON, nullable=True)
+
+    # Example: ['in_app', 'email', 'sms']
+    delivery_methods = Column(JSON, nullable=False, default=["in_app"])
+
+    # Default priority: can be overridden at rule level
+    default_priority = Column(SQLEnum(NotificationPriority), default=NotificationPriority.MEDIUM)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now()) # pylint: disable=not-callable
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now()) # pylint: disable=not-callable
+
+    user = relationship("User", back_populates="notification_pref")

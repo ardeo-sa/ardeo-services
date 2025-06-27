@@ -28,6 +28,7 @@ from app.database.services import get_services_db, Base, get_session_factory
 from app.users.models.user import User, UserRole
 from app.calendar.models.meeting import Meeting
 from app.core.dependencies import get_current_user
+from app.notifications.models import Notification, NotificationPriority
 
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
@@ -259,3 +260,20 @@ def load_trigger_conditions_fixture(filename: str = "trigger_conditions.json") -
     path = Path(__file__).parent / "fixtures" / filename
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
+
+
+@pytest.fixture
+def dummy_notification():
+    """
+    Create a dummy Notification object for testing purposes.
+
+    Returns:
+        Notification: A mock notification with preset fields.
+    """
+    return Notification(
+        id=1,
+        user_id=123,
+        title="Test Title",
+        body="Test Body",
+        priority=NotificationPriority.MEDIUM,
+    )

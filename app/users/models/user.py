@@ -33,6 +33,13 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
     role = Column(SQLEnum(UserRole), default=UserRole.NORMAL, nullable=False)
+    email = Column(String, nullable=True)
+    whatsapp_number = Column(String, nullable=True)
+
+    @property
+    def name(self) -> str:
+        """Dynamically combines first_name and last_name every time name is required"""
+        return f"{self.first_name} {self.last_name}"
 
     calendar_tokens = relationship(
         "CalendarOAuthToken",
@@ -41,3 +48,9 @@ class User(Base):
     )
 
     meeting_links = relationship("MeetingParticipant", back_populates="user")
+    watched_items = relationship("WatchedItem", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    notification_pref = relationship("NotificationPreference",
+                                     back_populates="user",
+                                     uselist=False,
+                                     cascade="all,delete-orphan")
+

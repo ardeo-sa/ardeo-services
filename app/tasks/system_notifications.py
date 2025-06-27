@@ -28,7 +28,7 @@ from app.database.session import async_session_maker
 from app.notifications.models import Notification
 from app.notifications.schemas import NotificationCreate
 from app.notifications.enums import NotificationType
-from app.notifications.service import NotificationService
+from app.notifications.services import NotificationService
 
 from app.patients.models.patient import CareStep
 from app.calendar.models.meeting import MDTAssignment

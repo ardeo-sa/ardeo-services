@@ -1,11 +1,12 @@
 """
 Defines the Pydantic models (schemas) for validating and serializing notification data.
 """
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from datetime import datetime
 from pydantic import BaseModel
 
-from app.notifications.enums import NotificationType, NotificationStatus
+from app.notifications.enums import NotificationType, NotificationStatus, NotificationPriority
+
 
 class NotificationBase(BaseModel):
     """Base schema shared by all Notification schemas."""
@@ -16,6 +17,7 @@ class NotificationBase(BaseModel):
     pathway_step_id: Optional[int]
     task_id: Optional[int]
 
+
 class NotificationCreate(BaseModel):
     """Schema for creating a new Notification."""
     user_id: int
@@ -24,6 +26,10 @@ class NotificationCreate(BaseModel):
     patient_id: Optional[int] = None
     pathway_step_id: Optional[int] = None
     task_id: Optional[int] = None
+    priority: NotificationPriority = NotificationPriority.MEDIUM
+    is_system: bool = False
+    status: str = "UNREAD"
+
 
 class NotificationRead(NotificationBase):
     """Schema for reading a Notification from the database."""
@@ -36,6 +42,7 @@ class NotificationRead(NotificationBase):
     model_config = {
         "from_attributes": True
     }
+
 
 class NotificationOut(BaseModel):
     """Schema for serializing notification data to API consumers."""
@@ -68,3 +75,47 @@ class WatchedItemCreate(BaseModel):
     item_type: str
     item_id: int
     trigger_conditions: Optional[Dict] = None
+
+
+class WatchedItemRead(WatchedItemCreate):
+    """
+    Schema for reading a WatchedItem from the database.
+
+    Inherits from WatchedItemCreate and includes:
+        - id: unique identifier
+        - created_at: timestamp of creation
+    """
+    id: int
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+class NotificationPreferenceCreate(BaseModel):
+    trigger_conditions: Optional[Dict] = None
+    delivery_methods: List[str] = ["in_app"]
+    default_priority: NotificationPriority = NotificationPriority.MEDIUM
+
+
+class NotificationPreferenceUpdate(NotificationPreferenceCreate):
+    pass
+
+
+class NotificationPreferenceRead(NotificationPreferenceCreate):
+    """
+    Schema for reading a NotificationPreference.
+
+    Includes:
+        - id: unique identifier
+        - user_id: associated user
+        - created_at: timestamp
+    """
+    id: int
+    user_id: int
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True
+    }
