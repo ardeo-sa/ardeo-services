@@ -88,7 +88,7 @@ class WatchedItem(Base):
     item_type = Column(String, nullable=False)  # e.g., "form", "metric"
     item_id = Column(Integer, nullable=False)
     trigger_conditions = Column(JSON, nullable=True)  # Flexible condition config
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="watched_items")
 

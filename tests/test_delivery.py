@@ -11,7 +11,7 @@ External dependencies are patched using mocks to avoid real network calls or fil
 
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.notifications.models import Notification, NotificationPriority
 
@@ -22,10 +22,9 @@ def dummy_notification():
     return Notification(
         id=1,
         user_id=42,
-        title="Test Notification",
-        body="This is a test notification.",
+        message="This is a test notification.",
         priority=NotificationPriority.HIGH,
-        created_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc)
     )
 
 
