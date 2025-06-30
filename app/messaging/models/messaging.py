@@ -9,12 +9,14 @@ and each message includes metadata such as sender, receiver, timestamp, and read
 from uuid import uuid4
 from datetime import datetime, timezone
 
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy.types import JSON, Uuid
 from sqlalchemy import Column, DateTime, Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.sqlite import JSON as SQLITE_JSON
 
 from app.database.services import Base
-
+from app.database.types import UUIDListJSON
 
 class Conversation(Base):
     """
@@ -33,7 +35,10 @@ class Conversation(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     topic = Column(String, nullable=True)
     meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=True)
-    participant_ids = Column(String)  # Could be JSON, many-to-many in future
+    participant_ids = Column(
+        ARRAY(UUID(as_uuid=True)).with_variant(UUIDListJSON, "sqlite"),
+        nullable=False
+    )
 
     # Relationships
     messages = relationship("Message", back_populates="conversation")

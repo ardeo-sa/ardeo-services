@@ -155,7 +155,8 @@ async def normal_user(db_session, user_factory): # pylint: disable=redefined-out
     user = user_factory(
         email=f"user_{uuid4().hex[:8]}@example.com",
         role= UserRole.NORMAL,
-        name="Normal John"
+        first_name="John",
+        last_name="Normal"
     )
     user_factory._meta.sqlalchemy_session.expunge(user) # pylint: disable=protected-access
 
@@ -176,7 +177,8 @@ async def coordinator_user(db_session, user_factory): # pylint: disable=redefine
     user = user_factory(
         email=f"coord_{uuid4().hex[:8]}@example.com",
         role=UserRole.COORDINATOR,
-        name="Jerry the Coordinator"
+        first_name="Jerry",
+        last_name="Coordinator"
     )
     user_factory._meta.sqlalchemy_session.expunge(user) # pylint: disable=protected-access
 

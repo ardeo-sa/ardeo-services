@@ -99,8 +99,8 @@ async def create_conversation(db: AsyncSession, conversation: ConversationCreate
         topic=conversation.topic,
     )
     db.add(new_convo)
-    db.commit()
-    db.refresh(new_convo)
+    await db.commit()
+    await db.refresh(new_convo)
     return new_convo
 
 
