@@ -7,7 +7,9 @@ an enumerated type defined in the user schemas to distinguish
 between roles like 'user', 'admin', and 'coordinator'.
 """
 from enum import Enum
+import uuid
 
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
@@ -29,11 +31,12 @@ class User(Base):
     """
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    # id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String, nullable=False)
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
     role = Column(SQLEnum(UserRole), default=UserRole.NORMAL, nullable=False)
-    email = Column(String, nullable=True)
     whatsapp_number = Column(String, nullable=True)
 
     @property

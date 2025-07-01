@@ -42,12 +42,13 @@ async def create_message(db: AsyncSession, message: MessageCreate) -> Message:
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    if is_mdt_conversation(conversation) and not user_can_access_mdt(conversation, message.sender_id, db):
+    if await is_mdt_conversation(conversation) and not await user_can_access_mdt(conversation, message.sender_id, db):
         raise HTTPException(status_code=403, detail="User not authorized to post in MDT channel")
 
     msg = Message(
         conversation_id=message.conversation_id,
         sender_id=message.sender_id,
+        recipient_id=message.recipient_id,
         content=message.content,
     )
     db.add(msg)
@@ -71,11 +72,11 @@ async def get_conversation_messages(db: AsyncSession, conversation_id: UUID, use
     Raises:
         HTTPException: If access is denied or conversation doesn't exist.
     """
-    conversation = get_conversation_by_id(db, conversation_id)
+    conversation = await get_conversation_by_id(db, conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    if is_mdt_conversation(conversation) and not user_can_access_mdt(conversation, user_id, db):
+    if await is_mdt_conversation(conversation) and not await user_can_access_mdt(conversation, user_id, db):
         raise HTTPException(status_code=403, detail="User not authorized to access MDT conversation")
 
     stmt = select(Message).where(Message.conversation_id == conversation_id).order_by(Message.timestamp)
@@ -99,8 +100,8 @@ async def create_conversation(db: AsyncSession, conversation: ConversationCreate
         topic=conversation.topic,
     )
     db.add(new_convo)
-    db.commit()
-    db.refresh(new_convo)
+    await db.commit()
+    await db.refresh(new_convo)
     return new_convo
 
 
@@ -120,7 +121,8 @@ async def get_conversation_by_id(db: AsyncSession, conversation_id: UUID) -> Con
     """
     stmt = select(Conversation).where(Conversation.id == conversation_id).order_by(Conversation.created_at)
     result = await db.execute(stmt)
-    return result.scalars().all()
+    conversation = result.scalar_one_or_none()
+    return conversation
 
 
 async def is_mdt_conversation(conversation: Conversation) -> bool:

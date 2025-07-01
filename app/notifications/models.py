@@ -3,7 +3,9 @@ Contains the SQLAlchemy ORM models for the Notification system.
 Defines notification types, statuses, and the Notification database table.
 """
 from datetime import datetime, timezone
+import uuid
 
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime, Text, JSON, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -34,7 +36,8 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, index=True)
+    # user_id = Column(Integer, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     patient_id = Column(Integer, index=True, nullable=True)
     pathway_step_id = Column(Integer, nullable=True)
     task_id = Column(Integer, nullable=True)
@@ -84,7 +87,8 @@ class WatchedItem(Base):
     __tablename__ = "watched_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     item_type = Column(String, nullable=False)  # e.g., "form", "metric"
     item_id = Column(Integer, nullable=False)
     trigger_conditions = Column(JSON, nullable=True)  # Flexible condition config
@@ -97,7 +101,8 @@ class NotificationPreference(Base):
     __tablename__ = "notification_preferences"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    # user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     # JSON-encoded structure: {'trigger_rules': [...], 'logic': 'AND' | 'OR'}
     trigger_conditions = Column(JSON, nullable=True)

@@ -23,11 +23,12 @@ class MessageCreate(BaseModel):
         Attributes:
             conversation_id (UUID): The ID of the conversation the message belongs to.
             sender_id (UUID): The ID of the user sending the message.
-            receiver_id (UUID): The ID of the user receiving the message.
+            recipient_id (UUID): The ID of the user receiving the message.
             content (str): The content of the message.
     """
     conversation_id: UUID
     sender_id: UUID
+    recipient_id: UUID
     content: str
 
     model_config = {
@@ -43,10 +44,10 @@ class MessageOut(BaseModel):
             id (UUID): Unique identifier for the message.
             conversation_id (UUID): The ID of the conversation the message belongs to.
             sender_id (UUID): The ID of the user who sent the message.
-            receiver_id (UUID): The ID of the user who received the message.
+            recipient_id (UUID): The ID of the user who received the message.
             content (str): The content of the message.
             timestamp (datetime): When the message was sent.
-            read (bool): Whether the message has been read by the receiver.
+            read (bool): Whether the message has been read by the recipient.
     """
     id: UUID
     sender_id: UUID

@@ -4,7 +4,9 @@ participants, notes, and patients discussed in MDT.
 """
 from datetime import datetime, timezone
 from enum import Enum
+import uuid
 
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
@@ -43,7 +45,8 @@ class MeetingParticipant(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.id"))
-    user_id = Column(Integer, ForeignKey("users.id"))
+    # user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     meeting = relationship("Meeting", back_populates="participants")
     user = relationship("User", back_populates="meeting_links")
