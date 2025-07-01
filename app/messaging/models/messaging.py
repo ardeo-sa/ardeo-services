@@ -3,7 +3,7 @@ SQLAlchemy ORM models for the messaging feature in the healthcare web app.
 
 Defines the `Conversation` and `Message` database tables, which support private
 messaging between two users. Each conversation contains multiple messages,
-and each message includes metadata such as sender, receiver, timestamp, and read status.
+and each message includes metadata such as sender, recipient, timestamp, and read status.
 """
 # from datetime import datetime
 from uuid import uuid4
@@ -63,7 +63,7 @@ class Message(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
     sender_id = Column(UUID(as_uuid=True), nullable=False)
-    receiver_id = Column(UUID(as_uuid=True), nullable=False)
+    recipient_id = Column(UUID(as_uuid=True), nullable=False)
     content = Column(String, nullable=False)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     read = Column(Boolean, default=False)

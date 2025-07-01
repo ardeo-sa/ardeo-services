@@ -60,14 +60,20 @@ async def test_get_conversation_by_id(db_session, normal_user):
     """
     Test retrieving a conversation by ID after creation.
     """
+    participant_ids = [str(normal_user.id)]
+
     convo = await create_conversation(db_session, ConversationCreate(
-        participant_ids=[normal_user.id],
+        participant_ids=participant_ids,
         topic="Solo Chat"
     ))
 
     fetched = await get_conversation_by_id(db_session, convo.id)
     assert fetched.id == convo.id
     assert fetched.topic == "Solo Chat"
+
+    # Check participant_ids come back correctly, converting them to strings
+    fetched_participants = [str(pid) for pid in fetched.participant_ids]
+    assert set(fetched_participants) == set(participant_ids)
 
 
 @pytest.mark.asyncio
