@@ -56,13 +56,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to DockerHub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push Docker image
+      - name: Build Docker image locally
         run: |
-          docker build -t yourusername/emdt-dash:latest .
-          docker push yourusername/emdt-dash:latest
+          docker build -t emdt-dash:latest .
+
+      - name: Run container to test image
+        run: |
+          docker run --rm emdt-dash:latest --help
