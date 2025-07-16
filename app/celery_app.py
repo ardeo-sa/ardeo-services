@@ -1,12 +1,14 @@
 # app/celery_app.py
-
+import os
 from celery import Celery
 from celery.schedules import crontab
 
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+
 celery_app = Celery(
     "ardeo_notifications",
-    broker="redis://localhost:6379/0",  # or your Redis URL
-    backend="redis://localhost:6379/0"
+    broker=REDIS_URL,
+    backend=REDIS_URL,
 )
 
 celery_app.conf.update(
@@ -26,5 +28,5 @@ celery_app.conf.beat_schedule = {
 
 celery_app.config_from_object("app.core.config", namespace="CELERY")
 
-# Make sure to autodiscover tasks in subdirectories
+# Autodiscover tasks in subdirectories
 celery_app.autodiscover_tasks(["app.notifications.tasks"])
