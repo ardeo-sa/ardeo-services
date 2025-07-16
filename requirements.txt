@@ -23,5 +23,6 @@ google-api-python-client
 aiosqlite
 
 celery
+redis
 
 twilio
