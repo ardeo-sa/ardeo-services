@@ -8,24 +8,29 @@ This module verifies:
 
 External dependencies are patched using mocks to avoid real network calls or file I/O.
 """
+# from datetime import datetime, timezone
+from unittest.mock import patch, AsyncMock, MagicMock
 
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-from datetime import datetime, timezone
 
-from app.notifications.models import Notification, NotificationPriority
+# from app.notifications.models import Notification, NotificationPriority
+from app.notifications.utils import delivery as delivery_mod
+from app.notifications.utils.delivery import (
+    send_email_notification,
+    send_whatsapp_message
+)
 
 
-@pytest.fixture
-def dummy_notification():
-    """Create a dummy Notification instance for tests."""
-    return Notification(
-        id=1,
-        user_id=42,
-        message="This is a test notification.",
-        priority=NotificationPriority.HIGH,
-        created_at=datetime.now(timezone.utc)
-    )
+# @pytest.fixture
+# def dummy_notification():
+#     """Create a dummy Notification instance for tests."""
+#     return Notification(
+#         id=1,
+#         user_id=42,
+#         message="This is a test notification.",
+#         priority=NotificationPriority.HIGH,
+#         created_at=datetime.now(timezone.utc)
+#     )
 
 
 @pytest.mark.asyncio
@@ -40,8 +45,6 @@ async def test_send_email_notification(mock_smtp, mock_get_user_email, dummy_not
         - starttls, login, and send_message are called
         - user email is resolved
     """
-    from app.notifications.utils.delivery import send_email_notification
-
     mock_get_user_email.return_value = "test@example.com"
     smtp_instance = MagicMock()
     mock_smtp.return_value.__enter__.return_value = smtp_instance
@@ -65,8 +68,6 @@ async def test_send_whatsapp_message(mock_twilio_client, mock_get_number, dummy_
         - Twilio client is instantiated
         - messages.create is called with proper parameters
     """
-    from app.notifications.utils.delivery import send_whatsapp_message
-
     mock_get_number.return_value = "+1234567890"
     mock_twilio_client.return_value.messages.create = MagicMock()
 
@@ -86,14 +87,8 @@ async def test_save_notification_to_file(tmp_path, dummy_notification):
         - notification_logs/ directory is created
         - file is created with expected name pattern
     """
-    from app.notifications.utils import delivery as delivery_mod
-
-    class FakePath(type(tmp_path)):
-        def mkdir(self, *args, **kwargs):
-            return super().mkdir(*args, **kwargs)
-
     with patch.object(delivery_mod, "Path", return_value=tmp_path):
         await delivery_mod.save_notification_to_file(dummy_notification)
 
     files = list(tmp_path.glob("*.json"))
-    assert len(files) == 1
+    assert len(files) == 1, "Expected one JSON file in log directory"

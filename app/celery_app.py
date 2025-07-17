@@ -1,4 +1,21 @@
-# app/celery_app.py
+"""
+Celery application configuration for the Ardeo notifications system.
+
+This module sets up and configures the Celery app used for background task
+processing, including periodic tasks such as system notification evaluation.
+
+Key Features:
+- Uses Redis as both the broker and result backend.
+- Configures JSON serialization for tasks and results.
+- Sets UTC as the timezone.
+- Registers a periodic task (`run_system_notifications`) to run every 5 minutes.
+- Loads additional Celery configuration from `app.core.config`.
+- Automatically discovers task modules in `app.notifications.tasks`.
+
+Usage:
+Import `celery_app` in modules where you need to define or queue Celery tasks.
+"""
+
 import os
 from celery import Celery
 from celery.schedules import crontab

@@ -4,26 +4,27 @@ Tests for calendar meeting endpoints using a mock SQLite database.
 Includes tests for meeting creation, listing, retrieval, note editing, adding patients,
 and permission validation for locking and audit logging.
 """
-import pytest
-import tempfile
 from datetime import datetime, timedelta, timezone
+
+import pytest
+# import tempfile
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select
 from httpx import AsyncClient
-from httpx._transports.asgi import ASGITransport
+# from httpx._transports.asgi import ASGITransport
 
 
-from app.calendar.models.meeting import Meeting, MeetingParticipant, SupportingFile
-from app.calendar.schemas.meeting import MeetingCreate, MeetingNoteCreate, MeetingType, MeetingNoteType
-from app.users.models.user import User
+from app.calendar.models.meeting import Meeting, MeetingParticipant
+from app.calendar.schemas.meeting import MeetingType, MeetingNoteType
+# from app.users.models.user import User
 from app.core.dependencies import get_current_user
 from app.main import app
-from app.database.services import get_services_db
+# from app.database.services import get_services_db
 
 @pytest.mark.asyncio
-async def test_create_regular_meeting(async_client: AsyncClient, normal_user, override_user_dependency):
+async def test_create_regular_meeting(async_client: AsyncClient, normal_user):
     """
     Test creating a regular meeting by a normal user.
     Normal user is provided by nomrla user fixture
@@ -84,7 +85,7 @@ async def test_create_mdt_meeting(async_client: AsyncClient, coordinator_user):
 
 @pytest.mark.asyncio
 async def test_create_mdt_meeting_requires_coordinator_role(async_client: AsyncClient,
-                                                            normal_user, override_user_dependency):
+                                                            normal_user):
     """
     Test that creating an MDT meeting without coordinator role fails.
     """
@@ -104,12 +105,12 @@ async def test_create_mdt_meeting_requires_coordinator_role(async_client: AsyncC
     response = await async_client.post("/api/calendar/meetings/", json=meeting_data)
     print(response.status_code, response.text)
 
-    assert response.status_code == 403 or response.status_code == 401
+    assert response.status_code in {403, 401}
 
 
 @pytest.mark.asyncio
-async def test_user_is_meeting_participant(async_client: AsyncClient, normal_user,
-                                           db_session: AsyncSession, override_user_dependency):
+async def test_user_is_meeting_participant(normal_user,
+                                           db_session: AsyncSession):
     """
     Test that the user is correctly added as a participant to a meeting.
     """
@@ -161,7 +162,7 @@ async def test_list_meetings(async_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_get_meeting_by_id(async_client: AsyncClient, normal_user,
-                                 db_session: AsyncSession, override_user_dependency):
+                                 db_session: AsyncSession):
     """
     Test retrieving a meeting by its ID.
     """
@@ -194,7 +195,7 @@ async def test_get_meeting_by_id(async_client: AsyncClient, normal_user,
 
 @pytest.mark.asyncio
 async def test_add_note_to_meeting(async_client: AsyncClient, normal_user,
-                                   db_session: AsyncSession, override_user_dependency):
+                                   db_session: AsyncSession):
     """
     Test adding a note to a meeting.
     """
@@ -233,7 +234,7 @@ async def test_add_note_to_meeting(async_client: AsyncClient, normal_user,
 
 @pytest.mark.asyncio
 async def test_edit_note_only_by_author(async_client: AsyncClient, normal_user,
-                                        db_session: AsyncSession, override_user_dependency):
+                                        db_session: AsyncSession):
     """
     Test that only the author can edit a meeting note.
     """
@@ -309,7 +310,7 @@ async def test_lock_meeting_success(async_client: AsyncClient, coordinator_user,
 
 @pytest.mark.asyncio
 async def test_lock_meeting_requires_proper_role(async_client: AsyncClient, normal_user,
-                                                 db_session: AsyncSession, override_user_dependency):
+                                                 db_session: AsyncSession):
     """
     Test locking a meeting as a user without permission fails.
     """
@@ -336,7 +337,7 @@ async def test_lock_meeting_requires_proper_role(async_client: AsyncClient, norm
     response = await async_client.post(f"/api/calendar/meetings/{meeting.id}/lock")
 
     # Expect 403 Forbidden if not coordinator or admin
-    assert response.status_code == 403 or response.status_code == 401
+    assert response.status_code in {403, 401}
 
 
 @pytest.mark.asyncio
@@ -373,7 +374,7 @@ async def test_add_patient_to_meeting_as_coordinator(async_client: AsyncClient, 
 
 @pytest.mark.asyncio
 async def test_add_patient_to_meeting_requires_coordinator(async_client: AsyncClient, normal_user,
-                                                           db_session: AsyncSession, override_user_dependency):
+                                                           db_session: AsyncSession):
     """
     Test adding patients to a meeting is restricted to coordinators.
     """
@@ -482,7 +483,7 @@ async def test_get_meeting_audit_log_as_admin(async_client: AsyncClient, coordin
 
 @pytest.mark.asyncio
 async def test_get_meeting_audit_log_requires_coordinator_or_admin(async_client: AsyncClient, normal_user,
-                                                                   db_session: AsyncSession, override_user_dependency):
+                                                                   db_session: AsyncSession):
     """
     Test that audit log retrieval is forbidden for normal users.
     """
@@ -506,4 +507,4 @@ async def test_get_meeting_audit_log_requires_coordinator_or_admin(async_client:
     await db_session.refresh(meeting)
 
     response = await async_client.get(f"/api/calendar/meetings/{meeting.id}/audit")
-    assert response.status_code == 403 or response.status_code == 401
+    assert response.status_code in {403, 401}

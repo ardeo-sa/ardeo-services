@@ -4,7 +4,7 @@ Unit tests for the notification service in app.notifications.service.
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from httpx import AsyncClient
+# from httpx import AsyncClient
 
 from app.notifications.services import NotificationService
 from app.notifications.models import WatchedItem
@@ -12,6 +12,7 @@ from app.notifications.schemas import NotificationCreate
 from app.notifications.triggers import NotificationTriggerService
 from app.notifications.enums import NotificationType, NotificationStatus
 from app.calendar.models.meeting import Meeting
+from tests.conftest import load_trigger_conditions_fixture
 
 
 @pytest.mark.asyncio
@@ -74,10 +75,6 @@ async def test_mark_notification_as_read(db_session):
             type=NotificationType.IN_APP
         )
     )
-
-    model_config = {
-        "from_attributes": True
-    }
 
     assert notif.status == NotificationStatus.UNREAD
 
@@ -158,11 +155,8 @@ async def test_evaluate_triggers_creates_notifications(db_session):
     """
     Test that evaluate_triggers creates a notification when compound conditions are met.
     """
-
-    # Step 1: Set up mock Metric and Meeting
-    metric = Metric(user_id=8, average_recovery_time=4.5)
     meeting = Meeting(user_id=8, scheduled_at=datetime.now(timezone.utc) + timedelta(hours=2))
-    db_session.add_all([metric, meeting])
+    db_session.add_all(meeting)
     await db_session.commit()
 
     # Step 2: Load watched item with trigger conditions
