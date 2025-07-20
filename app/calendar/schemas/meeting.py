@@ -54,12 +54,12 @@ class MeetingNoteResponse(BaseModel):
     """
     Schema for meeting note response
     """
-    id: int
+    id: str
     meeting_id: int
     type: str
     content: str
     created_at: datetime
-    author_id: Optional[int] = None
+    author_id: Optional[str] = None
 
     model_config = {
         "from_attributes": True

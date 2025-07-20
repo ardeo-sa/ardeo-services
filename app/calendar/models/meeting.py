@@ -45,8 +45,8 @@ class MeetingParticipant(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.id"))
-    # user_id = Column(Integer, ForeignKey("users.id"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"))
+    # user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     meeting = relationship("Meeting", back_populates="participants")
     user = relationship("User", back_populates="meeting_links")
@@ -58,7 +58,7 @@ class MeetingNote(Base):
     """
     __tablename__ = "meeting_notes"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     meeting_id = Column(Integer, ForeignKey("meetings.id"))
     type = Column(SQLEnum(MeetingNoteType), nullable=False)
     content = Column(Text)
@@ -66,7 +66,7 @@ class MeetingNote(Base):
         DateTime(timezone=True),
         server_default=func.now(), # pylint: disable=not-callable
         nullable=False)
-    author_id = Column(Integer, ForeignKey("users.id"))
+    author_id = Column(String, ForeignKey("users.id"))
     meeting = relationship("Meeting", back_populates="notes")
     author = relationship("User")
 
@@ -113,7 +113,7 @@ class MDTAssignment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
 
     role = Column(String, nullable=True)  # Optional role (e.g. scribe, chair)
     assigned_at = Column(DateTime(timezone=True), default=func.now())

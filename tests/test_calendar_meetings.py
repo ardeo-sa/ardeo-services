@@ -200,7 +200,8 @@ async def test_add_note_to_meeting(async_client: AsyncClient, normal_user,
     Test adding a note to a meeting.
     """
     # Simulate authenticated user
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    # from app.main import app
+    app.dependency_overrides[get_current_user] = lambda: normal_user
 
     normal_user = await db_session.merge(normal_user)
 
@@ -230,6 +231,8 @@ async def test_add_note_to_meeting(async_client: AsyncClient, normal_user,
     note = response.json()
     assert note["content"] == note_data["content"]
     assert note["type"] == note_data["type"]
+
+    app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio

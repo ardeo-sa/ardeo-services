@@ -37,7 +37,8 @@ class UserFactory(factory.alchemy.SQLAlchemyModelFactory):
         sqlalchemy_session = None  # Set this during test setup
         sqlalchemy_session_persistence = "commit"
 
-    id = factory.LazyFunction(uuid.uuid4)
+    id = factory.LazyFunction(lambda: str(uuid.uuid4()))
+
     email = factory.Faker("email")
     first_name = factory.Faker("first_name")
     last_name = factory.Faker("last_name")
