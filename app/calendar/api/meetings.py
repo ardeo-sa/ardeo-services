@@ -582,3 +582,39 @@ async def unretract_meeting_note(
     await log_meeting_action(db, current_user, action)
 
     return MeetingNoteResponse.from_orm(note)
+
+@router.post("/{meeting_id}/actions")
+async def record_meeting_action(
+    meeting_id: int,
+    action: str = Body(..., description="Description of the action (free text or predefined type)"),
+    metadata: Optional[dict] = Body(None),
+    db: AsyncSession = Depends(get_services_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Record a freeform meeting action not tied to a form or patient.
+
+    Useful for tracking decisions, attendance, or other events that aren't notes.
+
+    Args:
+        meeting_id (int): ID of the meeting.
+        action (str): Action description.
+        metadata (dict, optional): Additional metadata (e.g. user, timestamp, context).
+
+    Returns:
+        dict: Confirmation with logged data.
+    """
+    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    meeting = result.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    meeting_action = MeetingAction(
+        meeting_id=meeting_id,
+        action=action,
+        object_type="custom_action",
+        meta=metadata or {}
+    )
+    await log_meeting_action(db, current_user, meeting_action)
+
+    return {"detail": f"Action '{action}' recorded", "metadata": metadata}
