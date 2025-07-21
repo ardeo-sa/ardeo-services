@@ -69,6 +69,8 @@ class MeetingNote(Base):
     author_id = Column(Integer, ForeignKey("users.id"))
     meeting = relationship("Meeting", back_populates="notes")
     author = relationship("User")
+    form_name = Column(String, nullable=True)  # Used only when note is tied to a specific form
+    is_retracted = Column(Boolean, default=False)
 
 
 class MeetingPatient(Base):
@@ -124,3 +126,16 @@ class MDTAssignment(Base):
 
     def __repr__(self):
         return f"<MDTAssignment(meeting_id={self.meeting_id}, user_id={self.user_id}, role={self.role})>"
+
+
+class MeetingFormLock(Base):
+    __tablename__ = "meeting_form_locks"
+
+    id = Column(Integer, primary_key=True)
+    meeting_id = Column(Integer, ForeignKey("meetings.id", ondelete="CASCADE"))
+    form_name = Column(String, nullable=False)
+    locked_at = Column(DateTime, default=datetime.utcnow)
+    locked_by = Column(Integer, ForeignKey("users.id"))
+
+    __table_args__ = (UniqueConstraint("meeting_id", "form_name", name="_meeting_form_uc"),)
+

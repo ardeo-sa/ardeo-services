@@ -60,6 +60,7 @@ class MeetingNoteResponse(BaseModel):
     content: str
     created_at: datetime
     author_id: Optional[int] = None
+    is_retracted: bool = Field(False, description="Indicates whether the note was retracted by the author")
 
     model_config = {
         "from_attributes": True
@@ -118,20 +119,24 @@ class MeetingDetail(MeetingResponse):
 
 class MeetingNoteCreate(BaseModel):
     """
-        Schema for creating a new meeting note.
+    Schema for creating a new meeting note.
 
-        Fields:
-        - `type`: The classification of the note (e.g., discussion, recommendation, conclusion).
-        - `content`: The text content of the note (minimum 1 character).
+    Fields:
+    - `type`: The classification of the note (e.g., discussion, recommendation, conclusion).
+    - `content`: The text content of the note (minimum 1 character).
+    - `form_name`: Optional name of the form the note belongs to (e.g., 'decision_to_treat', 'discussion').
+                   Used to group notes by form within a meeting.
     """
     type: MeetingNoteType = Field(..., description="Type of note")
     content: str = Field(..., min_length=1, description="Note content")
+    form_name: Optional[str] = Field(None, description="Name of the form this note is associated with")
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "type": "recommendation",
-                "content": "Consider MRI follow-up within 3 months."
+                "content": "Consider MRI follow-up within 3 months.",
+                "form_name": "decision_to_treat"
             }
         }
     }
