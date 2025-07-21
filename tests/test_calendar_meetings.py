@@ -11,7 +11,7 @@ import pytest
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy import select
+from sqlalchemy import select, UniqueConstraint
 from httpx import AsyncClient
 # from httpx._transports.asgi import ASGITransport
 
@@ -29,7 +29,7 @@ async def test_create_regular_meeting(async_client: AsyncClient, normal_user):
     Test creating a regular meeting by a normal user.
     Normal user is provided by nomrla user fixture
     """
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: normal_user
 
     meeting_data = {
         "title": "Test Regular Meeting",
@@ -139,13 +139,16 @@ async def test_get_meeting_by_id(async_client: AsyncClient, normal_user,
 
 
 @pytest.mark.asyncio
-async def test_add_note_to_meeting(async_client: AsyncClient, normal_user,
-                                   db_session: AsyncSession):
+async def test_add_note_to_meeting(
+        async_client: AsyncClient,
+        normal_user,
+        db_session: AsyncSession,
+        # override_current_user_normal # pylint: disable=unused-argument
+):
     """
     Test adding a note to a meeting.
     """
-    # Simulate authenticated user
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: normal_user
 
     normal_user = await db_session.merge(normal_user)
 
@@ -318,13 +321,16 @@ async def test_add_patient_to_meeting_as_coordinator(async_client: AsyncClient, 
         app.dependency_overrides.clear()
 
 @pytest.mark.asyncio
-async def test_add_patient_to_meeting_requires_coordinator(async_client: AsyncClient, normal_user,
-                                                           db_session: AsyncSession):
+async def test_add_patient_to_meeting_requires_coordinator(
+        async_client: AsyncClient,
+        normal_user,
+        db_session: AsyncSession
+):
     """
     Test adding patients to a meeting is restricted to coordinators.
     """
     # Simulate authenticated user
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: normal_user
 
     normal_user = await db_session.merge(normal_user)
 
