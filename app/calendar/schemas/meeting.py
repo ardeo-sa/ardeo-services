@@ -54,12 +54,13 @@ class MeetingNoteResponse(BaseModel):
     """
     Schema for meeting note response
     """
-    id: str
+    id: int
     meeting_id: int
     type: str
     content: str
     created_at: datetime
-    author_id: Optional[str] = None
+    author_id: Optional[int] = None
+    is_retracted: bool = Field(False, description="Indicates whether the note was retracted by the author")
 
     model_config = {
         "from_attributes": True
@@ -126,12 +127,14 @@ class MeetingNoteCreate(BaseModel):
     """
     type: MeetingNoteType = Field(..., description="Type of note")
     content: str = Field(..., min_length=1, description="Note content")
+    form_name: Optional[str] = Field(None, description="Name of the form this note is associated with")
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "type": "recommendation",
-                "content": "Consider MRI follow-up within 3 months."
+                "content": "Consider MRI follow-up within 3 months.",
+                "form_name": "decision_to_treat"
             }
         }
     }

@@ -22,7 +22,7 @@ from app.calendar.schemas.meeting import (
     MeetingType
 )
 from app.calendar.services import meeting as services
-from app.calendar.models.meeting import Meeting, SupportingFile, MeetingNote
+from app.calendar.models.meeting import Meeting, SupportingFile, MeetingNote, MeetingFormLock
 from app.calendar.models.audit import MeetingAuditLog
 from app.core.dependencies import get_current_user, require_role, require_coordinator
 from app.database.services import get_services_db
@@ -116,6 +116,9 @@ async def add_note_to_meeting(
     """
     Add a structured note (e.g., discussion, recommendation) to an MDT meeting.
 
+    Notes may optionally belong to a structured form (e.g., 'decision_to_treat', 'mdt_discussion').
+    If a form has been locked, no additional notes can be added to that form.
+
     Only participants of the meeting may add notes. Locked meetings do not accept new notes.
 
     Args:
@@ -124,9 +127,22 @@ async def add_note_to_meeting(
         db (Session): Database session.
         current_user (User): The currently authenticated user.
 
-    Returns:
+    Returns:Raises:
+        HTTPException: If the form or meeting is locked, or user lacks permission.
         MeetingNoteResponse: The saved note entry.
+
+    Raises:
+        HTTPException: If the form or meeting is locked, or user lacks permission.
     """
+    # Check for form-level lock
+    if note.form_name:
+        result = await db.execute(
+            select(MeetingFormLock)
+            .filter_by(meeting_id=meeting_id, form_name=note.form_name)
+        )
+        locked = result.scalar_one_or_none()
+        if locked:
+            raise HTTPException(status_code=403, detail=f"Notes for form '{note.form_name}' are locked.")
 
     meeting_note = await services.add_meeting_note(meeting_id, note, current_user, db)
 
@@ -135,7 +151,10 @@ async def add_note_to_meeting(
         action="add_note",
         object_type="note",
         object_id=meeting_note.id,
-        meta={"type": note.type}
+        meta={
+            "type": note.type,
+            "form_name": note.form_name
+        }
     )
     await log_meeting_action(db, current_user, action)
 
@@ -154,7 +173,21 @@ async def edit_note_to_meeting(
     Edit a note in an MDT meeting.
 
     Only the original author may edit their note.
-    Locked meetings do not allow edits.
+    Locked meetings do not allow edits to general notes.
+    Locked forms do not allow edits to notes tied to that form.
+
+    Args:
+        meeting_id (int): ID of the MDT meeting.
+        note_id (int): ID of the note to edit.
+        note (MeetingNoteUpdate): The new values for the note.
+        db (Session): Database session.
+        current_user (User): The currently authenticated user.
+
+    Returns:
+        MeetingNoteResponse: The updated note object.
+
+    Raises:
+        HTTPException: If the meeting/note is not found, locked, or user not authorized.
     """
     result = await db.execute(select(Meeting).filter_by(id=meeting_id))
     meeting = result.scalar_one_or_none()
@@ -171,6 +204,16 @@ async def edit_note_to_meeting(
 
     if note_obj.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="You can only edit your own notes.")
+
+    # Check if the form associated with the note is locked
+    if note_obj.form_name:
+        result = await db.execute(
+            select(MeetingFormLock)
+            .filter_by(meeting_id=meeting_id, form_name=note_obj.form_name)
+        )
+        locked = result.scalar_one_or_none()
+        if locked:
+            raise HTTPException(status_code=403, detail=f"Notes for form '{note_obj.form_name}' are locked.")
 
     note_obj.type = note.type
     note_obj.content = note.content
@@ -411,3 +454,167 @@ async def get_meeting_audit_log(
         }
         for log in logs
     ]
+
+
+@router.post("/{meeting_id}/forms/{form_name}/lock")
+async def lock_meeting_form_notes(
+    meeting_id: int,
+    form_name: str,
+    db: AsyncSession = Depends(get_services_db),
+    current_user: User = Depends(require_role("coordinator", "admin")),
+):
+    """
+    Lock a specific form's notes (e.g., 'decision_to_treat') for a meeting.
+
+    Args:
+        meeting_id (int): The ID of the MDT meeting.
+        form_name (str): The name of the form to lock.
+
+    Returns:
+        dict: Confirmation message.
+    """
+    exists_stmt = select(MeetingFormLock).filter_by(meeting_id=meeting_id, form_name=form_name)
+    result = await db.execute(exists_stmt)
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Form '{form_name}' is already locked")
+
+    lock = MeetingFormLock(
+        meeting_id=meeting_id,
+        form_name=form_name,
+        locked_by=current_user.id
+    )
+    db.add(lock)
+    await db.commit()
+
+    action = MeetingAction(
+        meeting_id=meeting_id,
+        action="lock_form_notes",
+        object_type="form_note",
+        meta={"form_name": form_name}
+    )
+    await log_meeting_action(db, current_user, action)
+
+    return {"detail": f"Form '{form_name}' notes locked."}
+
+
+@router.post("/{meeting_id}/notes/{note_id}/retract", response_model=MeetingNoteResponse)
+async def retract_meeting_note(
+    meeting_id: int,
+    note_id: int,
+    db: AsyncSession = Depends(get_services_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retract a note (e.g., in MDT discussion) by crossing it out.
+
+    Only the original author may retract their note. Retracted notes are not deleted and remain in history.
+
+    Args:
+        meeting_id (int): ID of the meeting.
+        note_id (int): ID of the note to retract.
+        db (Session): Database session.
+        current_user (User): The currently authenticated user.
+
+    Returns:
+        MeetingNoteResponse: The updated (retracted) note.
+    """
+    result = await db.execute(select(MeetingNote).filter_by(id=note_id, meeting_id=meeting_id))
+    note = result.scalar_one_or_none()
+
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    if note.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only retract your own notes")
+    if note.is_retracted:
+        raise HTTPException(status_code=400, detail="Note is already retracted")
+
+    note.is_retracted = True
+    await db.commit()
+    await db.refresh(note)
+
+    action = MeetingAction(
+        meeting_id=meeting_id,
+        action="retract_note",
+        object_type="note",
+        object_id=note.id,
+        meta={"form_name": note.form_name, "note_type": note.type}
+    )
+    await log_meeting_action(db, current_user, action)
+
+    return MeetingNoteResponse.from_orm(note)
+
+
+@router.post("/{meeting_id}/notes/{note_id}/unretract", response_model=MeetingNoteResponse)
+async def unretract_meeting_note(
+    meeting_id: int,
+    note_id: int,
+    db: AsyncSession = Depends(get_services_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Undo a previous retraction of a meeting note.
+
+    Only the original author may unretract a previously retracted note.
+    """
+    result = await db.execute(select(MeetingNote).filter_by(id=note_id, meeting_id=meeting_id))
+    note = result.scalar_one_or_none()
+
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    if note.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only unretract your own notes")
+    if not note.is_retracted:
+        raise HTTPException(status_code=400, detail="Note is not currently retracted")
+
+    note.is_retracted = False
+    await db.commit()
+    await db.refresh(note)
+
+    action = MeetingAction(
+        meeting_id=meeting_id,
+        action="unretract_note",
+        object_type="note",
+        object_id=note.id,
+        meta={"form_name": note.form_name, "note_type": note.type}
+    )
+    await log_meeting_action(db, current_user, action)
+
+    return MeetingNoteResponse.from_orm(note)
+
+@router.post("/{meeting_id}/actions")
+async def record_meeting_action(
+    meeting_id: int,
+    action: str = Body(..., description="Description of the action (free text or predefined type)"),
+    metadata: Optional[dict] = Body(None),
+    db: AsyncSession = Depends(get_services_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Record a freeform meeting action not tied to a form or patient.
+
+    Useful for tracking decisions, attendance, or other events that aren't notes.
+
+    Args:
+        meeting_id (int): ID of the meeting.
+        action (str): Action description.
+        metadata (dict, optional): Additional metadata (e.g. user, timestamp, context).
+
+    Returns:
+        dict: Confirmation with logged data.
+    """
+    result = await db.execute(select(Meeting).filter_by(id=meeting_id))
+    meeting = result.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    meeting_action = MeetingAction(
+        meeting_id=meeting_id,
+        action=action,
+        object_type="custom_action",
+        meta=metadata or {}
+    )
+    await log_meeting_action(db, current_user, meeting_action)
+
+    return {"detail": f"Action '{action}' recorded", "metadata": metadata}
