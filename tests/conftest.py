@@ -276,6 +276,6 @@ def dummy_notification():
         id=1,
         user_id=123,
         title="Test Title",
-        body="Test Body",
+        message="Test Body",
         priority=NotificationPriority.MEDIUM,
     )

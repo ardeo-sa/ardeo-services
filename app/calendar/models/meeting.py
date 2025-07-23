@@ -3,12 +3,12 @@ SQLAlchemy models for meeting data including meeting details,
 participants, notes, and patients discussed in MDT.
 """
 from datetime import datetime, timezone
-from enum import Enum
+# from enum import Enum
 import uuid
 
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import Enum as SQLEnum
 
@@ -61,7 +61,8 @@ class MeetingNote(Base):
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     meeting_id = Column(Integer, ForeignKey("meetings.id"))
     type = Column(SQLEnum(MeetingNoteType), nullable=False)
-    content = Column(Text)
+    # content = Column(Text)
+    content = Column(JSON, nullable=False)
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(), # pylint: disable=not-callable
@@ -69,7 +70,7 @@ class MeetingNote(Base):
     author_id = Column(String, ForeignKey("users.id"))
     meeting = relationship("Meeting", back_populates="notes")
     author = relationship("User")
-    form_name = Column(String, nullable=True)  # Used only when note is tied to a specific form
+    form_name = Column(String, nullable=True)
     is_retracted = Column(Boolean, default=False)
 
 

@@ -37,6 +37,7 @@ class Notification(Base):
 
     id = Column(Integer, primary_key=True)
     # user_id = Column(Integer, index=True)
+    title = Column(String, nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     patient_id = Column(Integer, index=True, nullable=True)
     pathway_step_id = Column(Integer, nullable=True)
