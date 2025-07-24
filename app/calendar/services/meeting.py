@@ -188,6 +188,7 @@ async def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: 
         meeting_id=meeting.id,
         author_id=user.id,
         type=note_data.type,
+        form_name=note_data.form_name,
         content=note_data.content,
     )
     db.add(note)

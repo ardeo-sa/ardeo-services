@@ -96,8 +96,8 @@ async def test_create_message(db_session, normal_user, coordinator_user):
     msg = await create_message(db_session, message_data)
     assert msg.id is not None
     assert msg.content == "Hello and welcome!"
-    assert msg.sender_id == normal_user.id
-    assert msg.recipient_id == coordinator_user.id
+    assert str(msg.sender_id) == normal_user.id
+    assert str(msg.recipient_id) == coordinator_user.id
 
 
 @pytest.mark.asyncio

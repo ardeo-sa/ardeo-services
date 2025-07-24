@@ -3,12 +3,12 @@ SQLAlchemy models for meeting data including meeting details,
 participants, notes, and patients discussed in MDT.
 """
 from datetime import datetime, timezone
-from enum import Enum
+# from enum import Enum
 import uuid
 
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import Enum as SQLEnum
 
@@ -45,8 +45,8 @@ class MeetingParticipant(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.id"))
-    # user_id = Column(Integer, ForeignKey("users.id"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"))
+    # user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     meeting = relationship("Meeting", back_populates="participants")
     user = relationship("User", back_populates="meeting_links")
@@ -58,18 +58,19 @@ class MeetingNote(Base):
     """
     __tablename__ = "meeting_notes"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     meeting_id = Column(Integer, ForeignKey("meetings.id"))
     type = Column(SQLEnum(MeetingNoteType), nullable=False)
-    content = Column(Text)
+    # content = Column(Text)
+    content = Column(JSON, nullable=False)
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(), # pylint: disable=not-callable
         nullable=False)
-    author_id = Column(Integer, ForeignKey("users.id"))
+    author_id = Column(String, ForeignKey("users.id"))
     meeting = relationship("Meeting", back_populates="notes")
     author = relationship("User")
-    form_name = Column(String, nullable=True)  # Used only when note is tied to a specific form
+    form_name = Column(String, nullable=True)
     is_retracted = Column(Boolean, default=False)
 
 
@@ -115,7 +116,7 @@ class MDTAssignment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
 
     role = Column(String, nullable=True)  # Optional role (e.g. scribe, chair)
     assigned_at = Column(DateTime(timezone=True), default=func.now())

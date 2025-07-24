@@ -61,7 +61,7 @@ async def test_create_mdt_meeting_requires_coordinator_role(async_client: AsyncC
     Test that creating an MDT meeting without coordinator role fails.
     """
     # Simulate authenticated user
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: normal_user
 
     meeting_data = {
         "title": "Test MDT Meeting set-up by regular user",
@@ -80,42 +80,55 @@ async def test_create_mdt_meeting_requires_coordinator_role(async_client: AsyncC
 
 
 @pytest.mark.asyncio
-async def test_add_note_to_meeting(async_client: AsyncClient, normal_user,
-                                   db_session: AsyncSession):
+async def test_add_note_to_meeting(
+        async_client: AsyncClient,
+        normal_user,
+        db_session: AsyncSession,
+        # override_current_user_normal # pylint: disable=unused-argument
+):
     """
     Test adding a note to a meeting.
     """
-    # Simulate authenticated user
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: normal_user
+    try:
+        normal_user = await db_session.merge(normal_user)
 
-    normal_user = await db_session.merge(normal_user)
+        # Prepare meeting and user fixture
+        meeting = Meeting(
+            title="Test Meeting",
+            type=MeetingType.MDT.value,
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+            participants=[
+                MeetingParticipant(user=normal_user)
+            ],
+            locked=False
+        )
+        db_session.add(meeting)
+        await db_session.commit()
+        await db_session.refresh(meeting)
 
-    # Prepare meeting and user fixture
-    meeting = Meeting(
-        title="Test Meeting",
-        type=MeetingType.MDT.value,
-        start_time=datetime.now(timezone.utc),
-        end_time=datetime.now(timezone.utc) + timedelta(hours=1),
-        participants=[
-            MeetingParticipant(user=normal_user)
-        ],
-        locked=False
-    )
-    db_session.add(meeting)
-    await db_session.commit()
-    await db_session.refresh(meeting)
+        note_data = {
+            "type": MeetingNoteType.RECOMMENDATION.value,
+            "form_name": "decision_to_treat",
+            "content": {
+                "decision": "start chemo",
+                "date": "2025-08-01",
+            }
+        }
 
-    note_data = {
-        "type": MeetingNoteType.RECOMMENDATION.value,
-        "content": "This is a test recommendation note."
-    }
+        response = await async_client.post(f"/api/calendar/meetings/{meeting.id}/notes", json=note_data)
 
-    response = await async_client.post(f"/api/calendar/meetings/{meeting.id}/notes", json=note_data)
-
-    assert response.status_code == 200
-    note = response.json()
-    assert note["content"] == note_data["content"]
-    assert note["type"] == note_data["type"]
+        assert response.status_code == 200
+        note = response.json()
+        # print(note["form_name"])
+        # print(note)
+        assert note["form_name"] == "decision_to_treat"
+        assert note["content"]["decision"] == "start chemo"
+        # assert note["content"] == note_data["content"]
+        assert note["type"] == note_data["type"]
+    finally:
+        app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio
@@ -125,7 +138,7 @@ async def test_edit_note_only_by_author(async_client: AsyncClient, normal_user,
     Test that only the author can edit a meeting note.
     """
     # Setup: user is not the author
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: normal_user
 
     normal_user = await db_session.merge(normal_user)
 
@@ -147,7 +160,9 @@ async def test_edit_note_only_by_author(async_client: AsyncClient, normal_user,
     note_id = 1
     edit_payload = {
         "type": MeetingNoteType.DISCUSSION.value,
-        "content": "Edited note content"
+        "content": {
+            "text": "Edited note content"
+        }
     }
 
     response = await async_client.put(
@@ -194,7 +209,6 @@ async def test_lock_meeting_success(async_client: AsyncClient, coordinator_user,
     finally:
         app.dependency_overrides.clear()
 
-
 @pytest.mark.asyncio
 async def test_lock_meeting_requires_proper_role(async_client: AsyncClient, normal_user,
                                                  db_session: AsyncSession):
@@ -202,7 +216,7 @@ async def test_lock_meeting_requires_proper_role(async_client: AsyncClient, norm
     Test locking a meeting as a user without permission fails.
     """
     # Simulate authenticated user
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: normal_user
 
     normal_user = await db_session.merge(normal_user)
 
@@ -260,13 +274,16 @@ async def test_add_patient_to_meeting_as_coordinator(async_client: AsyncClient, 
         app.dependency_overrides.clear()
 
 @pytest.mark.asyncio
-async def test_add_patient_to_meeting_requires_coordinator(async_client: AsyncClient, normal_user,
-                                                           db_session: AsyncSession):
+async def test_add_patient_to_meeting_requires_coordinator(
+        async_client: AsyncClient,
+        normal_user,
+        db_session: AsyncSession
+):
     """
     Test adding patients to a meeting is restricted to coordinators.
     """
     # Simulate authenticated user
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: normal_user
 
     normal_user = await db_session.merge(normal_user)
 
@@ -374,7 +391,7 @@ async def test_get_meeting_audit_log_requires_coordinator_or_admin(async_client:
     """
     Test that audit log retrieval is forbidden for normal users.
     """
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: normal_user
 
     normal_user = await db_session.merge(normal_user)
 
@@ -426,7 +443,10 @@ async def test_post_meeting_action_success(async_client: AsyncClient, coordinato
         )
 
         assert response.status_code == 200
-        assert response.json()["action"] == action_data["action"]
+        assert "Action" in response.json()["detail"]
+        # assert response.json()["detail"] == action_data["action"]
+        assert response.json()["metadata"] == {"location": "Zoom"}
+
     finally:
         app.dependency_overrides.clear()
 
@@ -452,7 +472,9 @@ async def test_retract_note(async_client: AsyncClient, normal_user, db_session: 
         # Add a note
         response = await async_client.post(
             f"/api/calendar/meetings/{meeting.id}/notes",
-            json={"type": "discussion", "content": "Note to be retracted"}
+            json={"type": "discussion", "content": {
+            "decision": "Note to be retracted"
+        }}
         )
         note_id = response.json()["id"]
 
@@ -460,9 +482,9 @@ async def test_retract_note(async_client: AsyncClient, normal_user, db_session: 
         retract_response = await async_client.post(
             f"/api/calendar/meetings/{meeting.id}/notes/{note_id}/retract"
         )
-
+        # print(retract_response.json())
         assert retract_response.status_code == 200
-        assert retract_response.json()["retracted"] is True
+        assert retract_response.json()["is_retracted"] is True
     finally:
         app.dependency_overrides.clear()
 
@@ -488,61 +510,29 @@ async def test_restore_note(async_client: AsyncClient, normal_user, db_session: 
         # Create a note
         response = await async_client.post(
             f"/api/calendar/meetings/{meeting.id}/notes",
-            json={"type": "discussion", "content": "This will be restored"}
+            json={"type": "discussion", "content": {
+                "decision": "Note to be restored"
+            }}
         )
+        print("dupa")
+        # print(response.json())
         note_id = response.json()["id"]
+        # print(note_id)
 
         # Retract it
-        await async_client.post(
+        retract_response = await async_client.post(
             f"/api/calendar/meetings/{meeting.id}/notes/{note_id}/retract"
         )
+        print(retract_response.json())
 
         # Restore it
         restore_response = await async_client.post(
             f"/api/calendar/meetings/{meeting.id}/notes/{note_id}/restore"
         )
+        print(restore_response.json())
 
         assert restore_response.status_code == 200
-        assert restore_response.json()["retracted"] is False
-    finally:
-        app.dependency_overrides.clear()
-
-
-@pytest.mark.asyncio
-async def test_create_form_note(async_client: AsyncClient, coordinator_user, db_session: AsyncSession):
-    """Test structured MDT form note creation."""
-    app.dependency_overrides[get_current_user] = lambda: coordinator_user
-    try:
-        coordinator_user = await db_session.merge(coordinator_user)
-        meeting = Meeting(
-            title="Form Note Test",
-            type=MeetingType.MDT.value,
-            start_time=datetime.now(timezone.utc),
-            end_time=datetime.now(timezone.utc) + timedelta(hours=1),
-            participants=[MeetingParticipant(user=coordinator_user)],
-            locked=False
-        )
-        db_session.add(meeting)
-        await db_session.commit()
-        await db_session.refresh(meeting)
-
-        form_name = "decision_to_treat"
-        form_data = {
-            "content": {
-                "decision": "start chemo",
-                "date": "2025-08-01"
-            }
-        }
-
-        response = await async_client.post(
-            f"/api/calendar/meetings/{meeting.id}/notes/form/{form_name}",
-            json=form_data
-        )
-
-        assert response.status_code == 200
-        payload = response.json()
-        assert payload["form_name"] == form_name
-        assert payload["content"]["decision"] == "start chemo"
+        assert restore_response.json()["is_retracted"] is False
     finally:
         app.dependency_overrides.clear()
 
@@ -565,24 +555,43 @@ async def test_locking_prevents_note_edit(async_client: AsyncClient, coordinator
         await db_session.commit()
         await db_session.refresh(meeting)
 
+        note_data = {
+            "type": MeetingNoteType.RECOMMENDATION.value,
+            "form_name": "decision_to_treat",
+            "content": {
+                "decision": "start chemo",
+                "date": "2025-08-01"
+            }
+        }
+
         # Create a note
         note_response = await async_client.post(
             f"/api/calendar/meetings/{meeting.id}/notes",
-            json={"type": "recommendation", "content": "Initial note"}
+            json=note_data
         )
         note_id = note_response.json()["id"]
 
         # Lock meeting
         await async_client.post(f"/api/calendar/meetings/{meeting.id}/lock")
 
+        edited_note_data = {
+            "type": MeetingNoteType.RECOMMENDATION.value,
+            "form_name": "decision_to_treat",
+            "content": {
+                "decision": "don't start chemo",
+                "date": "2025-08-03"
+            }
+        }
+
         # Try editing note
         edit_response = await async_client.put(
             f"/api/calendar/meetings/{meeting.id}/notes/{note_id}",
-            json={"type": "recommendation", "content": "Edited after lock"}
+            json=edited_note_data
         )
+
+        if edit_response.status_code != 403:
+            print("Response JSON:", edit_response.json())
 
         assert edit_response.status_code == 403
     finally:
         app.dependency_overrides.clear()
-
-

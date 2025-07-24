@@ -123,7 +123,7 @@ async def add_note_to_meeting(
 
     Args:
         meeting_id (int): ID of the MDT meeting.
-        note (MeetingNoteCreate): The note details (type, content).
+        note (MeetingNoteCreate): The note details (type, form_name, content).
         db (Session): Database session.
         current_user (User): The currently authenticated user.
 
@@ -135,6 +135,7 @@ async def add_note_to_meeting(
         HTTPException: If the form or meeting is locked, or user lacks permission.
     """
     # Check for form-level lock
+    # print(note)
     if note.form_name:
         result = await db.execute(
             select(MeetingFormLock)
@@ -164,7 +165,7 @@ async def add_note_to_meeting(
 @router.put("/{meeting_id}/notes/{note_id}", response_model=MeetingNoteResponse)
 async def edit_note_to_meeting(
     meeting_id: int,
-    note_id: int,
+    note_id: str,
     note: MeetingNoteUpdate,
     db: AsyncSession = Depends(get_services_db),
     current_user: User = Depends(get_current_user)
@@ -217,9 +218,10 @@ async def edit_note_to_meeting(
 
     note_obj.type = note.type
     note_obj.content = note.content
+    note_obj.form_name = note.form_name
     await db.commit()
     await db.refresh(note_obj)
-    return MeetingNoteResponse.from_orm(note_obj)
+    return MeetingNoteResponse.model_validate(note_obj)
 
 
 @router.post("/{meeting_id}/lock")
@@ -422,6 +424,7 @@ async def list_meetings(
         end_date=end_date
     )
 
+
 @router.get("/{meeting_id}/audit", response_model=List[dict])
 async def get_meeting_audit_log(
     meeting_id: int,
@@ -456,7 +459,7 @@ async def get_meeting_audit_log(
     ]
 
 
-@router.post("/{meeting_id}/forms/{form_name}/lock")
+@router.post("/{meeting_id}/notes/forms/{form_name}/lock")
 async def lock_meeting_form_notes(
     meeting_id: int,
     form_name: str,
@@ -502,7 +505,8 @@ async def lock_meeting_form_notes(
 @router.post("/{meeting_id}/notes/{note_id}/retract", response_model=MeetingNoteResponse)
 async def retract_meeting_note(
     meeting_id: int,
-    note_id: int,
+    note_id: str,
+    # _payload: dict = Body(default={}),
     db: AsyncSession = Depends(get_services_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -525,7 +529,7 @@ async def retract_meeting_note(
 
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
-    if note.created_by != current_user.id:
+    if note.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only retract your own notes")
     if note.is_retracted:
         raise HTTPException(status_code=400, detail="Note is already retracted")
@@ -543,13 +547,13 @@ async def retract_meeting_note(
     )
     await log_meeting_action(db, current_user, action)
 
-    return MeetingNoteResponse.from_orm(note)
+    return MeetingNoteResponse.model_validate(note)
 
 
-@router.post("/{meeting_id}/notes/{note_id}/unretract", response_model=MeetingNoteResponse)
-async def unretract_meeting_note(
+@router.post("/{meeting_id}/notes/{note_id}/restore", response_model=MeetingNoteResponse)
+async def restore_meeting_note(
     meeting_id: int,
-    note_id: int,
+    note_id: str,
     db: AsyncSession = Depends(get_services_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -563,7 +567,7 @@ async def unretract_meeting_note(
 
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
-    if note.created_by != current_user.id:
+    if note.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only unretract your own notes")
     if not note.is_retracted:
         raise HTTPException(status_code=400, detail="Note is not currently retracted")
@@ -581,7 +585,8 @@ async def unretract_meeting_note(
     )
     await log_meeting_action(db, current_user, action)
 
-    return MeetingNoteResponse.from_orm(note)
+    return MeetingNoteResponse.model_validate(note)
+
 
 @router.post("/{meeting_id}/actions")
 async def record_meeting_action(

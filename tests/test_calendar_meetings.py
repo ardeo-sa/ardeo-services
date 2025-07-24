@@ -11,7 +11,7 @@ import pytest
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy import select
+from sqlalchemy import select, UniqueConstraint
 from httpx import AsyncClient
 # from httpx._transports.asgi import ASGITransport
 
@@ -29,7 +29,7 @@ async def test_create_regular_meeting(async_client: AsyncClient, normal_user):
     Test creating a regular meeting by a normal user.
     Normal user is provided by nomrla user fixture
     """
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: normal_user
 
     meeting_data = {
         "title": "Test Regular Meeting",
@@ -112,7 +112,8 @@ async def test_get_meeting_by_id(async_client: AsyncClient, normal_user,
     Test retrieving a meeting by its ID.
     """
     # Simulate authenticated user
-    # app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: normal_user
+
     normal_user = await db_session.merge(normal_user)
 
     # Prepare meeting and user fixture
@@ -136,4 +137,3 @@ async def test_get_meeting_by_id(async_client: AsyncClient, normal_user,
     meeting_data = response.json()
     assert meeting_data["id"] == meeting.id
     assert "title" in meeting_data
-
