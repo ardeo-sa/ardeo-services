@@ -1,6 +1,6 @@
 import os
 import logging
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger import json
 
 def setup_logging():
     log_level = os.getenv("LOG_LEVEL", "INFO")
@@ -10,7 +10,7 @@ def setup_logging():
     logger.setLevel(log_level)
 
     handler = logging.FileHandler(log_file)
-    formatter = jsonlogger.JsonFormatter(
+    formatter = json.JsonFormatter(
         '%(asctime)s %(levelname)s %(name)s %(message)s'
     )
     handler.setFormatter(formatter)
