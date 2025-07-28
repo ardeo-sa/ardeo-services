@@ -26,3 +26,6 @@ celery
 redis
 
 twilio
+
+python-json-logger
+prometheus-fastapi-instrumentator
