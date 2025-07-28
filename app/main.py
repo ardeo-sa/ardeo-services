@@ -11,7 +11,7 @@ from app.api.router import router as api_router
 from app.calendar.api.router import router as meetings_router
 from app.logging_config import setup_logging
 
-setup_logging(log_file="/app/app.log")
+setup_logging()
 
 
 app = FastAPI(title="Services Management App")
