@@ -19,9 +19,10 @@ app = FastAPI(title="Services Management App")
 app.include_router(api_router)
 app.include_router(meetings_router)
 
+logger = logging.getLogger(__name__)
 Instrumentator().instrument(app).expose(app)
 
 @app.get("/health")
 def health():
-    logging.info("Health endpoint called")
+    logger.info("Health endpoint called")
     return {"status": "ok"}

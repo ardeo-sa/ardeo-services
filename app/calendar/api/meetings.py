@@ -1,6 +1,7 @@
 """
 Endpoints for managing calendar meetings, including regular and MDT meetings.
 """
+import logging
 from uuid import uuid4
 import os
 from typing import List, Optional
@@ -33,6 +34,7 @@ from app.calendar.schemas.meeting import MeetingNoteUpdate
 MAX_FILE_SIZE_MB = 100
 UPLOAD_DIR = "/tmp/uploads"
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -60,11 +62,14 @@ async def create_meeting(
     Raises:
         HTTPException: If user attempts to create an MDT meeting without coordinator role.
     """
-
+    logger.info(f"User {current_user.id} requested to create a meeting of type {meeting.type}.")
     if meeting.type == MeetingType.MDT:
+        logger.debug(f"Checking coordinator role for user {current_user.id} (required for MDT).")
         require_role("coordinator")(current_user)
 
-    return await services.create_meeting(meeting, db)
+    created = await services.create_meeting(meeting, db)
+    logger.info(f"Meeting created successfully with ID {created.id} by user {current_user.id}.")
+    return created
 
 
 @router.get("/{meeting_id}", response_model=MeetingDetail)
@@ -76,10 +81,10 @@ async def get_meeting(
     """
     Retrieve details of a specific meeting by ID.
     """
-    # if current_user.role not in ("admin", "coordinator"):
-    #     raise HTTPException(status_code=403, detail="Access denied.")
-
-    return await services.get_meeting(meeting_id, db, current_user)
+    logger.info(f"User {current_user.id} requested details for meeting {meeting_id}.")
+    meeting = await services.get_meeting(meeting_id, db, current_user)
+    logger.info(f"Meeting {meeting_id} details returned to user {current_user.id}.")
+    return meeting
 
 
 @router.post("/{meeting_id}/patients", response_model=MeetingResponse)
@@ -103,7 +108,10 @@ async def add_patient_to_meeting(
     Returns:
         MeetingResponse: The updated meeting object including new patients.
     """
-    return await services.add_patients_to_meeting(meeting_id, patient_ids, db)
+    logger.info(f"Coordinator {current_user.id} adding patients {patient_ids} to meeting {meeting_id}.")
+    updated = await services.add_patients_to_meeting(meeting_id, patient_ids, db)
+    logger.info(f"Patients added to meeting {meeting_id} by coordinator {current_user.id}.")
+    return updated
 
 
 @router.post("/{meeting_id}/notes", response_model=MeetingNoteResponse)
@@ -134,30 +142,30 @@ async def add_note_to_meeting(
     Raises:
         HTTPException: If the form or meeting is locked, or user lacks permission.
     """
-    # Check for form-level lock
-    # print(note)
+    logger.info(f"User {current_user.id} is adding note to meeting {meeting_id}.")
+
     if note.form_name:
+        logger.debug(f"Checking if form '{note.form_name}' is locked for meeting {meeting_id}.")
         result = await db.execute(
-            select(MeetingFormLock)
-            .filter_by(meeting_id=meeting_id, form_name=note.form_name)
+            select(MeetingFormLock).filter_by(meeting_id=meeting_id, form_name=note.form_name)
         )
         locked = result.scalar_one_or_none()
         if locked:
+            logger.warning(f"Form '{note.form_name}' is locked for meeting {meeting_id}.")
             raise HTTPException(status_code=403, detail=f"Notes for form '{note.form_name}' are locked.")
 
     meeting_note = await services.add_meeting_note(meeting_id, note, current_user, db)
+    logger.info(f"Note added to meeting {meeting_id} by user {current_user.id} (note_id={meeting_note.id}).")
 
     action = MeetingAction(
         meeting_id=meeting_id,
         action="add_note",
         object_type="note",
         object_id=meeting_note.id,
-        meta={
-            "type": note.type,
-            "form_name": note.form_name
-        }
+        meta={"type": note.type, "form_name": note.form_name}
     )
     await log_meeting_action(db, current_user, action)
+    logger.debug(f"Audit log recorded for meeting {meeting_id} note addition.")
 
     return meeting_note
 
@@ -190,37 +198,49 @@ async def edit_note_to_meeting(
     Raises:
         HTTPException: If the meeting/note is not found, locked, or user not authorized.
     """
+    logger.info(f"User {current_user.id} is attempting to edit note {note_id} in meeting {meeting_id}.")
+
     result = await db.execute(select(Meeting).filter_by(id=meeting_id))
     meeting = result.scalar_one_or_none()
 
     if not meeting:
+        logger.warning(f"Meeting {meeting_id} not found.")
         raise HTTPException(status_code=404, detail="Meeting not found")
+
     if meeting.locked:
+        logger.warning(f"Meeting {meeting_id} is locked. Editing notes is not allowed.")
         raise HTTPException(status_code=403, detail="Meeting is locked. Notes cannot be edited.")
 
     result = await db.execute(select(MeetingNote).filter_by(id=note_id, meeting_id=meeting_id))
     note_obj = result.scalar_one_or_none()
+
     if not note_obj:
+        logger.warning(f"Note {note_id} not found in meeting {meeting_id}.")
         raise HTTPException(status_code=404, detail="Note not found")
 
     if note_obj.created_by != current_user.id:
+        logger.warning(f"User {current_user.id} is not the author of note {note_id} and cannot edit it.")
         raise HTTPException(status_code=403, detail="You can only edit your own notes.")
 
-    # Check if the form associated with the note is locked
     if note_obj.form_name:
+        logger.debug(f"Checking if form '{note_obj.form_name}' is locked for meeting {meeting_id}.")
         result = await db.execute(
-            select(MeetingFormLock)
-            .filter_by(meeting_id=meeting_id, form_name=note_obj.form_name)
+            select(MeetingFormLock).filter_by(meeting_id=meeting_id, form_name=note_obj.form_name)
         )
         locked = result.scalar_one_or_none()
         if locked:
+            logger.warning(f"Form '{note_obj.form_name}' is locked. Note {note_id} cannot be edited.")
             raise HTTPException(status_code=403, detail=f"Notes for form '{note_obj.form_name}' are locked.")
 
+    logger.debug(f"Updating note {note_id} content and type.")
     note_obj.type = note.type
     note_obj.content = note.content
     note_obj.form_name = note.form_name
+
     await db.commit()
     await db.refresh(note_obj)
+
+    logger.info(f"Note {note_id} successfully updated by user {current_user.id}.")
     return MeetingNoteResponse.model_validate(note_obj)
 
 
@@ -243,17 +263,22 @@ async def lock_meeting(
     Returns:
         dict: Confirmation message upon successful lock.
     """
+    logger.info(f"User {current_user.id} is attempting to lock meeting {meeting_id}.")
+
     result = await db.execute(select(Meeting).filter_by(id=meeting_id))
     meeting = result.scalar_one_or_none()
 
     if not meeting:
+        logger.warning(f"Meeting {meeting_id} not found.")
         raise HTTPException(status_code=404, detail="Meeting not found")
 
     if current_user.role not in ("coordinator", "admin"):
+        logger.warning(f"User {current_user.id} with role '{current_user.role}' is not authorized to lock meetings.")
         raise HTTPException(status_code=403, detail="Only coordinators or admins can lock meetings")
 
     meeting.locked = True
     await db.commit()
+    logger.info(f"Meeting {meeting_id} successfully locked by user {current_user.id}.")
 
     action = MeetingAction(
         meeting_id=meeting_id,
@@ -263,7 +288,6 @@ async def lock_meeting(
     await log_meeting_action(db, current_user, action)
 
     return {"detail": f"Meeting {meeting.id} locked."}
-
 
 
 @router.post("/{meeting_id}/files", response_model=dict)
@@ -288,14 +312,18 @@ async def upload_supporting_file(
     Returns:
         dict: Confirmation and file metadata.
     """
+    logger.info(f"User {current_user.id} is uploading a file to meeting {meeting_id}: {file.filename}")
+
     result = await db.execute(select(Meeting).filter_by(id=meeting_id))
     meeting = result.scalar_one_or_none()
 
     # Check if meeting exists
     if not meeting:
+        logger.warning(f"Meeting {meeting_id} not found for file upload.")
         raise HTTPException(status_code=404, detail="Meeting not found")
     # Enforce lock check
     if meeting.locked:
+        logger.warning(f"Meeting {meeting_id} is locked. File upload blocked.")
         raise HTTPException(status_code=403, detail="Meeting is locked. Uploads are not allowed.")
 
     # Generate unique file path and save file
@@ -306,14 +334,20 @@ async def upload_supporting_file(
     # Stream file to disk and check size
     max_size_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
     total_size = 0
-    with open(filepath, "wb") as out_file:
-        while chunk := file.file.read(1024 * 1024):  # 1MB chunks
-            total_size += len(chunk)
-            if total_size > max_size_bytes:
-                out_file.close()
-                os.remove(filepath)
-                raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
-            out_file.write(chunk)
+
+    try:
+        with open(filepath, "wb") as out_file:
+            while chunk := file.file.read(1024 * 1024):
+                total_size += len(chunk)
+                if total_size > max_size_bytes:
+                    out_file.close()
+                    os.remove(filepath)
+                    logger.warning(f"File {file.filename} exceeds size limit ({MAX_FILE_SIZE_MB}MB). Upload aborted.")
+                    raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
+                out_file.write(chunk)
+    except Exception as e:
+        logger.error(f"Error writing file {file.filename} to disk: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during file upload")
 
     # Create DB record
     file_record = SupportingFile(
@@ -326,8 +360,14 @@ async def upload_supporting_file(
         encryption_method=None,
     )
     db.add(file_record)
+
     await db.commit()
     await db.refresh(file_record)
+
+    logger.info(
+        f"File {file.filename} ({total_size} bytes) uploaded successfully by user {current_user.id} "
+        f"for meeting {meeting_id}."
+    )
 
     action = MeetingAction(
         meeting_id=meeting_id,
@@ -369,6 +409,8 @@ async def download_supporting_file(
     Returns:
         FileResponse: The binary file to download.
     """
+    logger.info(f"User {current_user.id} attempting to download file {file_id} from meeting {meeting_id}")
+
     result = await db.execute(
         select(Meeting)
         .options(selectinload(Meeting.participants))
@@ -377,18 +419,33 @@ async def download_supporting_file(
     meeting = result.scalar_one_or_none()
 
     if meeting is None:
+        logger.warning(f"Meeting {meeting_id} not found for file download by user {current_user.id}")
         raise HTTPException(status_code=404, detail="Meeting not found")
 
     if current_user.id not in [p.id for p in meeting.participants]:
-        raise HTTPException(status_code=403, detail="Access denied:: Only participants can download files")
+        logger.warning(f"User {current_user.id} is not a participant in meeting {meeting_id}. Access denied.")
+        raise HTTPException(status_code=403, detail="Access denied: Only participants can download files")
 
     result = await db.execute(select(SupportingFile).filter_by(id=file_id, meeting_id=meeting_id))
     file = result.scalar_one_or_none()
+
     if not file:
+        logger.warning(f"File {file_id} not found in meeting {meeting_id} for user {current_user.id}")
         raise HTTPException(status_code=404, detail="File not found")
 
-    return FileResponse(path=file.path, filename=file.name, media_type='application/octet-stream')
+    if not os.path.exists(file.path):
+        logger.error(f"File path {file.path} for file {file_id} does not exist on disk")
+        raise HTTPException(status_code=500, detail="File not found on disk")
 
+    logger.info(
+        f"User {current_user.id} downloaded file '{file.name}' (ID: {file_id}) from meeting {meeting_id}"
+    )
+
+    return FileResponse(
+        path=file.path,
+        filename=file.name,
+        media_type='application/octet-stream'
+    )
 
 
 @router.get("/", response_model=List[MeetingResponse])
@@ -414,8 +471,12 @@ async def list_meetings(
     Returns:
         List[MeetingResponse]: A list of meetings.
     """
+    logger.info(
+        f"Listing meetings: skip={skip}, limit={limit}, "
+        f"search='{search}', start_date={start_date}, end_date={end_date}"
+    )
 
-    return await services.list_meetings(
+    meetings = await services.list_meetings(
         db=db,
         skip=skip,
         limit=limit,
@@ -423,6 +484,10 @@ async def list_meetings(
         start_date=start_date,
         end_date=end_date
     )
+
+    logger.info(f"Returned {len(meetings)} meetings")
+
+    return meetings
 
 
 @router.get("/{meeting_id}/audit", response_model=List[dict])
@@ -434,7 +499,10 @@ async def get_meeting_audit_log(
     """
     Retrieve audit logs for a meeting. Only coordinators/admins can view.
     """
+    logger.info(f"User {current_user.id} ({current_user.role}) requested audit log for meeting {meeting_id}")
+
     if current_user.role not in ("coordinator", "admin"):
+        logger.warning(f"Access denied for user {current_user.id} to audit log of meeting {meeting_id}")
         raise HTTPException(status_code=403, detail="Access denied")
 
     stmt = (
@@ -445,6 +513,8 @@ async def get_meeting_audit_log(
 
     result = await db.execute(stmt)
     logs = result.scalars().all()
+
+    logger.info(f"Returned {len(logs)} audit logs for meeting {meeting_id} to user {current_user.id}")
 
     return [
         {
@@ -476,11 +546,14 @@ async def lock_meeting_form_notes(
     Returns:
         dict: Confirmation message.
     """
+    logger.info(f"User {current_user.id} attempting to lock form '{form_name}' for meeting {meeting_id}")
+
     exists_stmt = select(MeetingFormLock).filter_by(meeting_id=meeting_id, form_name=form_name)
     result = await db.execute(exists_stmt)
     existing = result.scalar_one_or_none()
 
     if existing:
+        logger.warning(f"Form '{form_name}' already locked for meeting {meeting_id}")
         raise HTTPException(status_code=400, detail=f"Form '{form_name}' is already locked")
 
     lock = MeetingFormLock(
@@ -490,6 +563,8 @@ async def lock_meeting_form_notes(
     )
     db.add(lock)
     await db.commit()
+
+    logger.info(f"Form '{form_name}' locked by user {current_user.id} for meeting {meeting_id}")
 
     action = MeetingAction(
         meeting_id=meeting_id,
@@ -524,19 +599,26 @@ async def retract_meeting_note(
     Returns:
         MeetingNoteResponse: The updated (retracted) note.
     """
+    logger.info(f"User {current_user.id} attempting to retract note {note_id} in meeting {meeting_id}")
+
     result = await db.execute(select(MeetingNote).filter_by(id=note_id, meeting_id=meeting_id))
     note = result.scalar_one_or_none()
 
     if not note:
+        logger.warning(f"Note {note_id} not found in meeting {meeting_id}")
         raise HTTPException(status_code=404, detail="Note not found")
     if note.author_id != current_user.id:
+        logger.warning(f"User {current_user.id} not authorized to retract note {note_id}")
         raise HTTPException(status_code=403, detail="You can only retract your own notes")
     if note.is_retracted:
+        logger.info(f"Note {note_id} is already retracted")
         raise HTTPException(status_code=400, detail="Note is already retracted")
 
     note.is_retracted = True
     await db.commit()
     await db.refresh(note)
+
+    logger.info(f"Note {note_id} retracted by user {current_user.id}")
 
     action = MeetingAction(
         meeting_id=meeting_id,
@@ -562,19 +644,26 @@ async def restore_meeting_note(
 
     Only the original author may unretract a previously retracted note.
     """
+    logger.info(f"User {current_user.id} attempting to restore note {note_id} in meeting {meeting_id}")
+
     result = await db.execute(select(MeetingNote).filter_by(id=note_id, meeting_id=meeting_id))
     note = result.scalar_one_or_none()
 
     if not note:
+        logger.warning(f"Note {note_id} not found in meeting {meeting_id}")
         raise HTTPException(status_code=404, detail="Note not found")
     if note.author_id != current_user.id:
+        logger.warning(f"User {current_user.id} not authorized to restore note {note_id}")
         raise HTTPException(status_code=403, detail="You can only unretract your own notes")
     if not note.is_retracted:
+        logger.info(f"Note {note_id} is not currently retracted")
         raise HTTPException(status_code=400, detail="Note is not currently retracted")
 
     note.is_retracted = False
     await db.commit()
     await db.refresh(note)
+
+    logger.info(f"Note {note_id} restored by user {current_user.id}")
 
     action = MeetingAction(
         meeting_id=meeting_id,
@@ -609,9 +698,13 @@ async def record_meeting_action(
     Returns:
         dict: Confirmation with logged data.
     """
+    logger.info(
+        f"User {current_user.id} recording custom action '{action}' for meeting {meeting_id} with metadata {metadata}")
+
     result = await db.execute(select(Meeting).filter_by(id=meeting_id))
     meeting = result.scalar_one_or_none()
     if not meeting:
+        logger.warning(f"Meeting {meeting_id} not found for custom action '{action}'")
         raise HTTPException(status_code=404, detail="Meeting not found")
 
     meeting_action = MeetingAction(
@@ -621,5 +714,7 @@ async def record_meeting_action(
         meta=metadata or {}
     )
     await log_meeting_action(db, current_user, meeting_action)
+
+    logger.info(f"Custom action '{action}' recorded for meeting {meeting_id} by user {current_user.id}")
 
     return {"detail": f"Action '{action}' recorded", "metadata": metadata}
