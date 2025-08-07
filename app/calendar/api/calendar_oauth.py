@@ -21,6 +21,7 @@ Dependencies:
 - google-auth-oauthlib for managing Google OAuth2 flow
 - Microsoft OAuth handled via direct POST to the token endpoint
 """
+import logging
 import uuid
 
 import requests
@@ -40,6 +41,8 @@ from app.core.dependencies import get_current_user
 from app.database.services import get_services_db
 from app.users.models.user import User
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/calendar/oauth", tags=["Calendar OAuth"])
 
 
@@ -50,6 +53,8 @@ def start_google_oauth():
 
     Redirects the user to Google's consent screen to authorize access to their calendar.
     """
+    logger.info("Starting Google OAuth flow")
+
     flow = Flow.from_client_config(
         {
             "web": {
@@ -63,6 +68,8 @@ def start_google_oauth():
         redirect_uri=GOOGLE_REDIRECT_URI,
     )
     auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline', include_granted_scopes='true')
+
+    logger.debug(f"Google auth URL: {auth_url}")
     return RedirectResponse(auth_url)
 
 
@@ -78,9 +85,13 @@ def google_callback(
     Exchanges code for access/refresh tokens. Save securely in your DB in production.
     """
     code = request.query_params.get("code")
+    logger.info(f"Google callback received for user {current_user.id}")
+
     if not code:
+        logger.error("Missing authorization code in Google callback")
         raise HTTPException(status_code=400, detail="Missing authorization code.")
 
+    logger.debug("Exchanging code for Google tokens")
     flow = Flow.from_client_config(
         {
             "web": {
@@ -97,6 +108,7 @@ def google_callback(
     credentials = flow.credentials
 
     # Save token to DB
+    logger.info(f"Saving Google calendar token for user {current_user.id}")
     save_calendar_token(db, current_user, "google", {
         "access_token": credentials.token,
         "refresh_token": credentials.refresh_token,
@@ -121,6 +133,8 @@ def start_microsoft_oauth():
 
     Redirects the user to Microsoft's login and consent screen.
     """
+    logger.info("Starting Microsoft OAuth flow")
+
     state = str(uuid.uuid4())
     url = (
         f"https://login.microsoftonline.com/{MS_TENANT_ID}/oauth2/v2.0/authorize"
@@ -131,6 +145,7 @@ def start_microsoft_oauth():
         f"&scope=offline_access Calendars.ReadWrite"
         f"&state={state}"
     )
+    logger.debug(f"Microsoft auth URL: {url}")
     return RedirectResponse(url)
 
 
@@ -145,6 +160,8 @@ def microsoft_callback(
 
     Exchanges code for tokens and returns them.
     """
+    logger.info(f"Microsoft callback received for user {current_user.id}")
+
     token_url = f"https://login.microsoftonline.com/{MS_TENANT_ID}/oauth2/v2.0/token"
     data = {
         "client_id": MS_CLIENT_ID,
@@ -154,13 +171,18 @@ def microsoft_callback(
         "grant_type": "authorization_code",
         "client_secret": MS_CLIENT_SECRET,
     }
+
+    logger.debug("Sending request to Microsoft token endpoint")
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     response = requests.post(token_url, data=data, headers=headers, timeout=15)
+
     if response.status_code != 200:
+        logger.error(f"Failed to exchange Microsoft token: {response.text}")
         raise HTTPException(status_code=500, detail="Failed to exchange token")
 
     token = response.json()
 
+    logger.info(f"Saving Microsoft calendar token for user {current_user.id}")
     save_calendar_token(db, current_user, "microsoft", {
         "access_token": token["access_token"],
         "refresh_token": token.get("refresh_token"),
