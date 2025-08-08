@@ -5,6 +5,7 @@ Provides utilities to fetch and push calendar events between the local system an
 external calendar services (Google Calendar, Microsoft Outlook Calendar) using
 OAuth tokens stored in the database.
 """
+import logging
 from datetime import datetime, timezone
 import os
 import asyncio
@@ -22,6 +23,8 @@ from app.users.models.user import User
 from app.calendar.models.meeting import Meeting, MeetingType
 from app.calendar.services.providers import google, microsoft
 
+logger = logging.getLogger(__name__)
+
 async def fetch_google_events(token_data: dict):
     """
     Fetches upcoming events from the user's Google Calendar asynchronously.
@@ -32,6 +35,7 @@ async def fetch_google_events(token_data: dict):
     Returns:
         list: A list of Google Calendar event dictionaries.
     """
+    logger.info("Fetching Google Calendar events...")
     credentials = Credentials(
         token=token_data["access_token"],
         refresh_token=token_data.get("refresh_token"),
@@ -55,8 +59,10 @@ async def fetch_google_events(token_data: dict):
 
     # The request execution is blocking; run it in a thread too
     events_result = await asyncio.to_thread(request.execute)
+    events = events_result.get("items", [])
 
-    return events_result.get("items", [])
+    logger.info(f"Fetched {len(events)} events from Google Calendar.")
+    return events
 
 
 async def fetch_microsoft_events(token_data: dict):
@@ -74,6 +80,7 @@ async def fetch_microsoft_events(token_data: dict):
     Raises:
         Exception: If the API request fails.
     """
+    logger.info("Fetching Microsoft Calendar events...")
     headers = {
         "Authorization": f"Bearer {token_data['access_token']}",
         "Content-Type": "application/json"
@@ -89,9 +96,12 @@ async def fetch_microsoft_events(token_data: dict):
         response = await client.get(url, headers=headers)
 
     if response.status_code != 200:
+        logger.error(f"Microsoft Calendar API failed: {response.text}")
         raise HTTPException(status_code=response.status_code, detail=f"Microsoft Calendar API failed {response.text}")
 
-    return response.json().get("value", [])
+    events = response.json().get("value", [])
+    logger.info(f"Fetched {len(events)} events from Microsoft Calendar.")
+    return events
 
 
 async def sync_user_calendar(user: User, db: AsyncSession):
@@ -111,29 +121,39 @@ async def sync_user_calendar(user: User, db: AsyncSession):
         Raises:
             ValueError: If the user has no linked calendar token.
     """
+    logger.info(f"Starting calendar sync for user {user.id} ({user.email})...")
     token_record = await db.execute(
         select(CalendarOAuthToken).where(CalendarOAuthToken.user_id == user.id)
     )
     token_record = token_record.scalar_one_or_none()
     if not token_record:
+        logger.warning("No calendar integration found for this user.")
         raise ValueError("No calendar integration found for this user")
 
     provider = token_record.provider
     token_data = token_record.token_data
+    logger.info(f"Detected provider: {provider}")
 
     events = []
     if provider == "google":
         events = await fetch_google_events(token_data)
     elif provider == "microsoft":
         events = await fetch_microsoft_events(token_data)
+    else:
+        logger.error(f"Unsupported provider: {provider}")
+        raise ValueError("Unsupported provider")
 
     synced_meetings = []
     for event in events:
-        meeting = _create_meeting_from_event(db, user, event, provider)
+        meeting = await _create_meeting_from_event(db, user, event, provider)
         if meeting:
+            logger.info(f"Created meeting '{meeting.title}' from {provider} event.")
             synced_meetings.append(meeting)
+        else:
+            logger.debug(f"Skipped duplicate event from {provider}: {event.get('id')}")
 
     await db.commit()
+    logger.info(f"Calendar sync complete. {len(synced_meetings)} new meetings added.")
     return [m.title for m in synced_meetings]
 
 
@@ -152,6 +172,7 @@ async def _create_meeting_from_event(db: AsyncSession, user: User, event: dict, 
        Returns:
            Meeting or None: The new Meeting object if created, otherwise None.
     """
+    logger.info(f"Starting meeting creation {event.id} ...")
     external_id = event["id"]
     title = event.get("summary") or event.get("subject", "Untitled")
     start_str = event["start"].get("dateTime") or event["start"].get("date")
@@ -167,7 +188,8 @@ async def _create_meeting_from_event(db: AsyncSession, user: User, event: dict, 
     existing = result.scalars().first()
 
     if existing:
-        return None  # Skip duplicates
+        logger.debug(f"Meeting already exists for event {external_id}. Skipping.")
+        return None
 
     meeting = Meeting(
         title=title,
@@ -179,6 +201,7 @@ async def _create_meeting_from_event(db: AsyncSession, user: User, event: dict, 
         external_provider=provider,
     )
     db.add(meeting)
+    logger.debug(f"Prepared meeting object for event {external_id}.")
     return meeting
 
 
@@ -200,26 +223,25 @@ async def push_meeting_to_external(meeting_id: int, user: User, db: AsyncSession
         Raises:
             ValueError: If the meeting or calendar token is not found, or provider is unsupported.
     """
-    # meeting = db.query(Meeting).filter_by(id=meeting_id).first()
+    logger.info(f"Pushing meeting {meeting_id} to external calendar for user {user.id}...")
+
     stmt = select(Meeting).filter_by(id=meeting_id)
     result = await db.execute(stmt)
     meeting = result.scalars().first()
     if not meeting:
+        logger.error("Meeting not found.")
         raise ValueError("Meeting not found")
 
     if meeting.external_event_id:
+        logger.info(f"Meeting {meeting_id} already synced as event {meeting.external_event_id}.")
         return "Already synced."
 
-    # token = (
-    #     db.query(CalendarOAuthToken)
-    #     .filter_by(user_id=user.id)
-    #     .first()
-    # )
     stmt = select(CalendarOAuthToken).filter_by(user_id=user.id)
     result = await db.execute(stmt)
     token = result.scalars().first()
 
     if not token:
+        logger.error("No calendar token found.")
         raise ValueError("No calendar token found")
 
     meeting_payload = {
@@ -228,16 +250,19 @@ async def push_meeting_to_external(meeting_id: int, user: User, db: AsyncSession
         "end_time": meeting.end_time.isoformat(),
         "description": meeting.notes[0].content if meeting.notes else None,
     }
+    logger.debug(f"Prepared payload for push: {meeting_payload}")
 
     if token.provider == "google":
         event_id = await asyncio.to_thread(google.push_to_google_calendar, token.token_data, meeting_payload)
     elif token.provider == "microsoft":
         event_id = await asyncio.to_thread(microsoft.push_to_outlook_calendar, token.token_data, meeting_payload)
     else:
+        logger.error(f"Unsupported provider: {token.provider}")
         raise ValueError("Unsupported provider")
 
     # Save external reference
     meeting.external_event_id = event_id
     meeting.external_provider = token.provider
     await db.commit()
+    logger.info(f"Successfully pushed meeting {meeting_id} to {token.provider} as event {event_id}.")
     return f"Pushed to {token.provider} calendar as event ID: {event_id}"
