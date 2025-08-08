@@ -3,10 +3,14 @@ Database setup and initialization for the services database using SQLAlchemy.
 """
 # pylint: disable=invalid-name
 # import os
+import logging
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
 from app.config import get_services_db_uri
+
+logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
@@ -27,6 +31,11 @@ def get_services_engine() -> "sqlalchemy.engine.Engine":
            sqlalchemy.engine.Engine: SQLAlchemy engine instance connected to the services database.
        """
     services_db_uri = get_services_db_uri()
+    if not services_db_uri:
+        logger.error("[DB] SERVICES_DB_URI not set.")
+        raise ValueError("SERVICES_DB_URI environment variable is not set.")
+
+    logger.info("[DB] Creating new SQLAlchemy engine for services DB.")
     return create_engine(services_db_uri, echo=True)
 
 
@@ -42,8 +51,12 @@ def get_services_engine_cached():
         """
     global _services_engine
     if _services_engine is None:
+        logger.debug("[DB] Initializing cached services engine.")
         _services_engine = get_services_engine()
+    else:
+        logger.debug("[DB] Using cached services engine.")
     return _services_engine
+
 
 def get_session_factory():
     """
@@ -54,11 +67,14 @@ def get_session_factory():
     """
     global _ServicesSessionLocal
     if _ServicesSessionLocal is None:
+        logger.debug("[DB] Creating session factory for services DB.")
         _ServicesSessionLocal = sessionmaker(
             autocommit=False,
             autoflush=False,
             bind=get_services_engine_cached()
         )
+    else:
+        logger.debug("[DB] Using cached session factory.")
     return _ServicesSessionLocal
 
 
@@ -70,10 +86,12 @@ def get_services_db() -> Session:
         Session: A SQLAlchemy session instance.
     """
     db = get_session_factory()()
+    logger.debug("[DB] Session opened for services DB.")
     try:
         yield db
     finally:
         db.close()
+        logger.debug("[DB] Session closed for services DB.")
 
 
 def init_services_db():
@@ -82,8 +100,11 @@ def init_services_db():
 
     This should be used in production or scripts that need early database setup.
     """
+    logger.info("[DB] Initializing services database connection.")
     get_services_engine_cached()
     get_session_factory()
+    logger.info("[DB] Services database initialization complete.")
+
 
 # def init_services_db():
 #     """

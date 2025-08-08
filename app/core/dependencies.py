@@ -42,6 +42,7 @@ def require_role(*roles: str) -> Callable:
         HTTPException: If current user does not have one of the required roles.
     """
     def role_checker(current_user: User = Depends(get_current_user)):
+        """Function to check roles"""
         if current_user.role not in roles:
             logger.warning(
                 f"[Auth] Role check failed: user_id={current_user.id}, "
