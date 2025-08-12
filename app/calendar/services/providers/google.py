@@ -1,7 +1,9 @@
 """Sync google calendar"""
+import logging
 from datetime import datetime, timezone
 import httpx
 
+logger = logging.getLogger(__name__)
 
 async def push_to_google_calendar(token_data: dict, meeting: dict):
     """
@@ -35,14 +37,26 @@ async def push_to_google_calendar(token_data: dict, meeting: dict):
         "description": meeting.get("description", "Scheduled via MDT system"),
     }
 
+    logger.info("Pushing meeting to Google Calendar")
+    logger.debug(f"Event payload: {event_payload}")
+
     async with httpx.AsyncClient(timeout=10) as client:
-        response = await client.post(
-        "https://www.googleapis.com/calendar/v3/calendars/primary/events",
-        headers=headers,
-        json=event_payload,
-    )
-    response.raise_for_status()
-    return response.json()["id"]
+        try:
+            response = await client.post(
+                "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+                headers=headers,
+                json=event_payload,
+            )
+            response.raise_for_status()
+            event_id = response.json()["id"]
+            logger.info(f"Successfully created Google Calendar event: {event_id}")
+            return event_id
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Failed to create event: {e.response.status_code} - {e.response.text}")
+            raise
+        except Exception as e:
+            logger.exception("Unexpected error while pushing to Google Calendar")
+            raise
 
 
 async def fetch_google_events(token_data: dict, max_results: int = 10) -> list:
@@ -75,12 +89,23 @@ async def fetch_google_events(token_data: dict, max_results: int = 10) -> list:
     }
 
     url = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+    logger.info("Fetching events from Google Calendar")
+    logger.debug(f"Request params: {params}")
 
     async with httpx.AsyncClient(timeout=10) as client:
-        response = await client.get(
-            url,
-            headers=headers,
-            params=params,
-        )
-        response.raise_for_status()
-        return response.json().get("items", [])
+        try:
+            response = await client.get(
+                url,
+                headers=headers,
+                params=params,
+            )
+            response.raise_for_status()
+            items = response.json().get("items", [])
+            logger.info(f"Retrieved {len(items)} events from Google Calendar")
+            return items
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Failed to fetch events: {e.response.status_code} - {e.response.text}")
+            raise
+        except Exception as e:
+            logger.exception("Unexpected error while fetching Google Calendar events")
+            raise

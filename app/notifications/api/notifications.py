@@ -6,7 +6,7 @@ This module enables interaction with the notification system through RESTful end
 supporting operations like reading, snoozing, dismissing, and delivering notifications
 via multiple channels such as in-app, email, WhatsApp, and local files.
 """
-
+import logging
 from datetime import datetime
 from typing import List
 
@@ -34,6 +34,8 @@ from app.notifications.utils.delivery import (
     save_notification_to_file
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
@@ -49,8 +51,11 @@ async def create_notification(notif: NotificationCreate, db: AsyncSession = Depe
     Returns:
         NotificationRead: The created notification.
     """
+    logger.info("Creating notification for user_id=%s, title='%s'", notif.user_id, notif.title)
     service = NotificationService(db)
-    return await service.create_notification(notif)
+    created = await service.create_notification(notif)
+    logger.info("Notification created: id=%s, status='ACTIVE'", created.id)
+    return created
 
 
 @router.post("/{notification_id}/read", response_model=NotificationRead)
@@ -65,8 +70,11 @@ async def mark_as_read(notification_id: int, db: AsyncSession = Depends(get_serv
     Returns:
         NotificationRead: The updated notification.
     """
+    logger.info("Marking notification as read: id=%s", notification_id)
     service = NotificationService(db)
-    return await service.mark_as_read(notification_id)
+    updated = await service.mark_as_read(notification_id)
+    logger.info("Notification marked as read: id=%s, status='READ'", updated.id)
+    return updated
 
 
 @router.post("/{notification_id}/dismiss", response_model=NotificationRead)
@@ -81,8 +89,11 @@ async def dismiss_notification(notification_id: int, db: AsyncSession = Depends(
     Returns:
         NotificationRead: The updated notification.
     """
+    logger.info("Dismissing notification: id=%s", notification_id)
     service = NotificationService(db)
-    return await service.dismiss(notification_id)
+    updated = await service.dismiss(notification_id)
+    logger.info("Notification dismissed: id=%s, status='DISMISSED'", updated.id)
+    return updated
 
 
 @router.post("/{notification_id}/snooze", response_model=NotificationRead)
@@ -98,8 +109,11 @@ async def snooze_notification(notification_id: int, until: datetime, db: AsyncSe
     Returns:
         NotificationRead: The updated notification.
     """
+    logger.info("Snoozing notification: id=%s until=%s", notification_id, until.isoformat())
     service = NotificationService(db)
-    return await service.snooze(notification_id, until)
+    updated = await service.snooze(notification_id, until)
+    logger.info("Notification snoozed: id=%s, snoozed_until=%s", updated.id, until.isoformat())
+    return updated
 
 
 @router.get("/active", response_model=List[NotificationRead])
@@ -114,8 +128,11 @@ async def get_active_notifications(current_user: User = Depends(get_current_user
     Returns:
         List[NotificationRead]: A list of active notifications.
     """
+    logger.info("Fetching active notifications for user_id=%s", current_user.id)
     service = NotificationService(db)
-    return await service.get_active_notifications(current_user.id)
+    notifications = await service.get_active_notifications(current_user.id)
+    logger.info("Retrieved %d active notifications for user_id=%s", len(notifications), current_user.id)
+    return notifications
 
 
 @router.post("/watch", response_model=WatchedItemRead)
@@ -130,8 +147,11 @@ async def watch_item(watch_data: WatchedItemCreate, db: AsyncSession = Depends(g
     Returns:
         WatchedItemRead: Created watched item object.
     """
+    logger.info("Registering watched item: item=%s, rules=%s", watch_data.item_id, getattr(watch_data, 'rules', None))
     service = NotificationService(db)
-    return await service.watch_item(watch_data)
+    watched_item = await service.watch_item(watch_data)
+    logger.info("Watched item registered: id=%s, item=%s", watched_item.id, watch_data.item_id)
+    return watched_item
 
 
 @router.post("/preferences", response_model=NotificationPreferenceRead)
@@ -146,8 +166,18 @@ async def set_notification_preferences(pref: NotificationPreferenceCreate, db: A
     Returns:
         NotificationPreferenceRead: Saved delivery preferences.
     """
+    logger.info(
+        "Setting notification preferences for user_id=%s, channels=%s",
+        getattr(pref, "user_id", None),
+        getattr(pref, "channels", None)
+    )
     service = NotificationService(db)
-    return await service.set_preferences(pref)
+    preferences = await service.set_preferences(pref)
+    logger.info(
+        "Notification preferences updated for user_id=%s",
+        getattr(pref, "user_id", None)
+    )
+    return preferences
 
 
 @router.post("/dispatch")
@@ -161,7 +191,9 @@ async def manual_dispatch(db: AsyncSession = Depends(get_services_db)):
     Returns:
         dict: Status of dispatch execution.
     """
+    logger.info("Manual notification dispatch triggered")
     await process_queued_notifications(db)
+    logger.info("Manual notification dispatch completed successfully")
     return {"status": "Dispatched"}
 
 
@@ -177,6 +209,8 @@ async def test_delivery(user_id: int, db: AsyncSession = Depends(get_services_db
     Returns:
         dict: Delivery status.
     """
+    logger.info("Initiating test notification delivery for user_id=%s", user_id)
+
     dummy_notification = Notification(
         id=0,  # Not persisted
         user_id=user_id,
@@ -185,8 +219,25 @@ async def test_delivery(user_id: int, db: AsyncSession = Depends(get_services_db
         priority="HIGH"
     )
 
-    await send_email_notification(dummy_notification)
-    await send_whatsapp_message(dummy_notification)
-    await save_notification_to_file(dummy_notification)
+    logger.debug("Dummy notification created: %s",
+                 dummy_notification.dict() if hasattr(dummy_notification, "dict") else dummy_notification)
 
+    try:
+        logger.info("Sending test email notification for user_id=%s", user_id)
+        await send_email_notification(dummy_notification)
+        logger.info("Test email notification sent successfully")
+
+        logger.info("Sending test WhatsApp message for user_id=%s", user_id)
+        await send_whatsapp_message(dummy_notification)
+        logger.info("Test WhatsApp message sent successfully")
+
+        logger.info("Saving test notification to local file for user_id=%s", user_id)
+        await save_notification_to_file(dummy_notification)
+        logger.info("Test notification saved to file successfully")
+
+    except Exception as e:
+        logger.exception("Test notification delivery failed for user_id=%s: %s", user_id, str(e))
+        raise
+
+    logger.info("Test notification delivery completed for user_id=%s", user_id)
     return {"status": "Test notification sent via all channels"}

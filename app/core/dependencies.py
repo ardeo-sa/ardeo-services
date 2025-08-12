@@ -1,9 +1,11 @@
 """Core dependencies"""
+import logging
 from typing import Callable
 
 from fastapi import Request, Depends, HTTPException, status
-
 from app.users.models.user import User
+
+logger = logging.getLogger(__name__)
 
 
 def get_current_user(request: Request) -> User:
@@ -19,8 +21,10 @@ def get_current_user(request: Request) -> User:
     user: User = request.state.user  # Assumes middleware sets this
 
     if not user:
+        logger.warning("[Auth] No authenticated user found in request.")
         raise HTTPException(status_code=401, detail="User not authenticated")
 
+    logger.debug(f"[Auth] Authenticated user: id={user.id}, role={user.role}")
     return user
 
 
@@ -38,12 +42,21 @@ def require_role(*roles: str) -> Callable:
         HTTPException: If current user does not have one of the required roles.
     """
     def role_checker(current_user: User = Depends(get_current_user)):
+        """Function to check roles"""
         if current_user.role not in roles:
+            logger.warning(
+                f"[Auth] Role check failed: user_id={current_user.id}, "
+                f"user_role={current_user.role}, required_roles={roles}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Only users with role(s) {roles} can perform this action."
             )
+        logger.debug(
+            f"[Auth] Role check passed: user_id={current_user.id}, role={current_user.role}"
+        )
         return current_user
+
     return role_checker
 
 __all__ = ["get_current_user", "require_role"]
