@@ -15,7 +15,7 @@ This test module covers the following functionality:
 Test Infrastructure:
 --------------------
 - Uses `pytest` with `pytest-asyncio` for async HTTPX client testing.
-- Fixtures like `async_client`, `normal_user`, and `coordinator_user` are shared via `conftest-old.py`.
+- Fixtures like `async_client`, `normal_user`, and `coordinator_user` are shared via `conftest.py`.
 - DB is set up in-memory using SQLite for isolated test execution.
 
 Each test ensures that the messaging feature works correctly both in normal and edge-case scenarios,

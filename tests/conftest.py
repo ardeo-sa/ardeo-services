@@ -1,10 +1,13 @@
+print(">>> chujemuje <<<")
 """
-Test infrastructure fixtures for the FastAPI application.
+Global test configuration and infrastructure fixtures.
 
-Includes:
-- Database setup and teardown
-- Async and sync test clients
-- Event loop management
+Responsibilities:
+- Register shared fixture modules (`tests/fixtures/`)
+- Configure async + sync test clients
+- Provide test database session overrides
+- Manage event loop lifecycle
+- Create/drop database schema for tests
 """
 
 import asyncio
@@ -18,6 +21,13 @@ from app.database.services import get_services_db, Base
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
+
+pytest_plugins = [
+    "tests.fixtures.db",
+    "tests.fixtures.users",
+    "tests.fixtures.meetings",
+    "tests.fixtures.notifications",
+]
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
@@ -66,7 +76,7 @@ async def create_db_schema():
 
 
 @pytest_asyncio.fixture
-async def db_session():
+async def db_session() -> AsyncSession:
     """
     Creates a new session for each test.
     """
