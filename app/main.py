@@ -24,5 +24,6 @@ Instrumentator().instrument(app).expose(app)
 
 @app.get("/health")
 def health():
+    """App health check"""
     logger.info("Health endpoint called")
     return {"status": "ok"}

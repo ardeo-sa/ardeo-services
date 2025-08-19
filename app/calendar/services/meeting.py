@@ -21,6 +21,7 @@ from app.database.services import get_services_db
 async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends(get_services_db)):
     """
     Create and persist a new meeting with participants and patients (if MDT).
+    Prevents scheduling overlapping meetings for the same participants.
 
     Args:
         meeting_data (MeetingCreate): Data for the new meeting.
@@ -29,6 +30,27 @@ async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends
     Returns:
         Meeting: The created meeting object with relationships.
     """
+    # --- Check for overlapping meetings ---
+    # (start1 < end2) AND (end1 > start2) → intervals overlap
+    overlap_stmt = (
+        select(Meeting)
+        .join(MeetingParticipant)
+        .where(
+            MeetingParticipant.user_id.in_(meeting_data.participants),
+            Meeting.start_time < meeting_data.end_time,
+            Meeting.end_time > meeting_data.start_time,
+        )
+    )
+
+    overlap_result = await db.execute(overlap_stmt)
+    overlapping_meetings = overlap_result.scalars().all()
+
+    if overlapping_meetings:
+        raise HTTPException(
+            status_code=400,
+            detail=f"One or more participants already have meetings scheduled during this time.",
+        )
+
     new_meeting = Meeting(
         title=meeting_data.title,
         start_time=meeting_data.start_time,

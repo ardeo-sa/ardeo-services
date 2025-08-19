@@ -10,6 +10,7 @@ various channels including:
 
 Functions are intended to be called from the NotificationService layer.
 """
+import json
 import logging
 import smtplib
 from email.message import EmailMessage
@@ -54,7 +55,7 @@ async def send_email_notification(notification: Notification):
         msg["Subject"] = title
         msg["From"] = SMTP_FROM
         msg["To"] = user_email
-        msg.set_content(notification.body or notification.message)
+        msg.set_content(notification.message)
 
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as smtp:
             smtp.starttls()
@@ -87,7 +88,7 @@ async def send_whatsapp_message(notification: Notification):
 
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         client.messages.create(
-            body=notification.body or notification.message,
+            body=notification.message,
             from_=TWILIO_WHATSAPP_FROM,
             to=f"whatsapp:{user_number}"
         )
@@ -115,7 +116,7 @@ async def save_notification_to_file(notification: Notification):
         filename = f"{notification.user_id}_{notification.id}_{timestamp}.json"
 
         data = {
-            "message": notification.body or notification.message,
+            "message": notification.message,
             "priority": notification.priority.value if notification.priority else "UNKNOWN",
             "sent_at": timestamp
         }

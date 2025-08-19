@@ -5,19 +5,18 @@ Includes tests for meeting creation, listing, retrieval, note editing, adding pa
 and permission validation for locking and audit logging.
 """
 from datetime import datetime, timedelta, timezone
-
 import pytest
 # import tempfile
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy import select, UniqueConstraint
+from sqlalchemy import select
 from httpx import AsyncClient
 # from httpx._transports.asgi import ASGITransport
 
 
 from app.calendar.models.meeting import Meeting, MeetingParticipant
-from app.calendar.schemas.meeting import MeetingType, MeetingNoteType
+from app.calendar.schemas.meeting import MeetingType
 # from app.users.models.user import User
 from app.core.dependencies import get_current_user
 from app.main import app

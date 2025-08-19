@@ -43,7 +43,18 @@ celery_app.conf.beat_schedule = {
     }
 }
 
+celery_app.conf.beat_schedule = {
+    "run-every-5-min": {
+        "task": "app.notifications.tasks.celery_tasks.run_system_notifications",
+        "schedule": crontab(minute="*/5"),
+    },
+    "sync-calendars-every-30-min": {
+        "task": "app.tasks.calendar_tasks.sync_all_user_calendars",
+        "schedule": crontab(minute="*/30"),
+    },
+}
+
 celery_app.config_from_object("app.core.config", namespace="CELERY")
 
-# Autodiscover tasks in subdirectories
-celery_app.autodiscover_tasks(["app.notifications.tasks"])
+# Autodiscover tasks in root
+celery_app.autodiscover_tasks(["app.tasks"])
