@@ -10,8 +10,8 @@ import pytest
 # import tempfile
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-from sqlalchemy import select
+# from sqlalchemy.orm import selectinload
+# from sqlalchemy import select
 from httpx import AsyncClient
 # from httpx._transports.asgi import ASGITransport
 

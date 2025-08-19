@@ -6,15 +6,18 @@ Includes:
 - Normal and coordinator users
 - FastAPI dependency overrides for get_current_user
 """
+# pylint: disable=redefined-outer-name
+
+from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from uuid import uuid4
 
+from app.main import app
 from app.users.models.user import User, UserRole
-from tests.user_factory import UserFactory
 from app.core.dependencies import get_current_user
 
+from tests.user_factory import UserFactory
 
 @pytest.fixture
 def user_factory(sync_db_session): # pylint: disable=redefined-outer-name

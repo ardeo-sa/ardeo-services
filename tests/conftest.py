@@ -1,4 +1,3 @@
-print(">>> chujemuje <<<")
 """
 Global test configuration and infrastructure fixtures.
 
@@ -16,11 +15,12 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import AsyncClient, ASGITransport
 
-from app.main import app
-from app.database.services import get_services_db, Base
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
+
+from app.main import app
+from app.database.services import get_services_db, Base
 
 pytest_plugins = [
     "tests.fixtures.db",

@@ -58,5 +58,3 @@ celery_app.config_from_object("app.core.config", namespace="CELERY")
 
 # Autodiscover tasks in root
 celery_app.autodiscover_tasks(["app.tasks"])
-
-

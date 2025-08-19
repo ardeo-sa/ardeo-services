@@ -6,11 +6,12 @@ Includes:
 - Shared meetings
 - Meetings with multiple participants
 """
+# pylint: disable=redefined-outer-name
 
 import pytest_asyncio
 
 from app.calendar.models.meeting import Meeting
-from tests.fixtures.users import normal_user, coordinator_user
+from tests.fixtures.users import normal_user, coordinator_user # pylint: disable=unused-import
 
 
 @pytest_asyncio.fixture
@@ -57,4 +58,3 @@ async def meeting_with_participants(db_session, shared_meeting, normal_user, coo
     await db_session.commit()
     await db_session.refresh(shared_meeting)
     return shared_meeting
-
