@@ -347,7 +347,7 @@ async def upload_supporting_file(
                 out_file.write(chunk)
     except Exception as e:
         logger.error(f"Error writing file {file.filename} to disk: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error during file upload")
+        raise HTTPException(status_code=500, detail="Internal server error during file upload") from e
 
     # Create DB record
     file_record = SupportingFile(

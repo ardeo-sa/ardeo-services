@@ -35,8 +35,7 @@ def get_services_db_uri(async_mode: bool = True) -> str:
 
     if async_mode:
         return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
-    else:
-        return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
 
 try:
     ASYNC_SERVICES_DB_URI = get_services_db_uri(async_mode=True)

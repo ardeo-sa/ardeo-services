@@ -61,7 +61,7 @@ async def generate_system_notifications(db: AsyncSession) -> List[Notification]:
 
     # 1. Overdue Care Steps
     result = await db.execute(select(CareStep).where(
-        and_(CareStep.due_date < now, CareStep.completed_at == None)
+        and_(CareStep.due_date < now, CareStep.completed_at is None)
     ))
     for step in result.scalars():
         notif = await service.create_notification(NotificationCreate(
@@ -74,7 +74,7 @@ async def generate_system_notifications(db: AsyncSession) -> List[Notification]:
         created.append(notif)
 
     # 2. New MDT Assignments
-    result = await db.execute(select(MDTAssignment).where(MDTAssignment.notified == False))
+    result = await db.execute(select(MDTAssignment).where(MDTAssignment.notified is False))
     for mdt in result.scalars():
         notif = await service.create_notification(NotificationCreate(
             user_id=mdt.user_id,
@@ -85,7 +85,7 @@ async def generate_system_notifications(db: AsyncSession) -> List[Notification]:
         created.append(notif)
 
     # 3. New Tasks
-    result = await db.execute(select(Task).where(Task.notified == False))
+    result = await db.execute(select(Task).where(Task.notified is False))
     for task in result.scalars():
         notif = await service.create_notification(NotificationCreate(
             user_id=task.assignee_id,
@@ -99,8 +99,8 @@ async def generate_system_notifications(db: AsyncSession) -> List[Notification]:
     # 4. New Clinical Reports
     result = await db.execute(select(ClinicalReport).where(
         and_(
-            ClinicalReport.uploaded_at != None,
-            ClinicalReport.notified == False
+            ClinicalReport.uploaded_at is not None,
+            ClinicalReport.notified is False
         )
     ))
     for report in result.scalars():
@@ -124,7 +124,7 @@ def generate_system_notifications_task():
     """
     try:
         asyncio.run(_run_async_task())
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         logger.exception(f"[Celery] Error generating system notifications: {e}")
 
 async def _run_async_task():

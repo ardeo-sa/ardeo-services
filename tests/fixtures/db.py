@@ -67,10 +67,21 @@ async def db_session() -> AsyncSession:
 
 @pytest.fixture
 def sync_db_session():
-    engine = create_engine(SYNC_DATABASE_URL, connect_args={"check_same_thread": False})
-    SessionLocal = sessionmaker(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    session = SessionLocal()
+    """
+        Provide a synchronous SQLAlchemy session for testing.
+
+        This fixture creates a new SQLite in-memory database (or the URL
+        defined in SYNC_DATABASE_URL), initializes the schema, and yields
+        a session for use in tests. The session is automatically closed
+        after the test completes.
+
+        Yields:
+            Session: A synchronous SQLAlchemy session bound to the test database.
+    """
+    sync_engine = create_engine(SYNC_DATABASE_URL, connect_args={"check_same_thread": False})
+    session_factory = sessionmaker(bind=sync_engine)
+    Base.metadata.create_all(bind=sync_engine)
+    session = session_factory()
     try:
         yield session
     finally:
@@ -91,4 +102,3 @@ def mock_env_vars(monkeypatch):
     monkeypatch.setenv("MICROSOFT_CLIENT_ID", "fake-microsoft-client-id")
     monkeypatch.setenv("MICROSOFT_CLIENT_SECRET", "fake-microsoft-client-secret")
     monkeypatch.setenv("MICROSOFT_REDIRECT_URI", "http://localhost/fake-microsoft-redirect")
-

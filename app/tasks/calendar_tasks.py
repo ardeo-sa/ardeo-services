@@ -52,8 +52,8 @@ def sync_all_user_calendars():
                     synced_titles = await sync_user_calendar(user, db)
                     logger.info(f"✅ {user.email}: {len(synced_titles)} new meetings synced")
                     total_synced += len(synced_titles)
-                except Exception as e:
-                    logger.error(f"❌ Failed to sync {user.email}: {e}")
+                except Exception as e: # pylint: disable=broad-exception-caught
+                    logger.error(f"Failed to sync {user.email}: {e}")
 
             return total_synced
 
