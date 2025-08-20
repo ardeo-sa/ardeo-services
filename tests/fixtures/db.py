@@ -1,27 +1,93 @@
 """
 Database-related test fixtures.
 
-Includes:
-- Sync SQLAlchemy session for factory_boy
-- Mocked environment variables for database and OAuth
+Responsibilities:
+- Async test DB engine + session factory
+- Create/drop schema once per test session
+- Provide async + sync DB sessions for tests
+- Override FastAPI DB dependency
+- Mock environment variables (OAuth)
 """
-import importlib
 import pytest
-from app.database.services import get_session_factory
-import app.config as app_config
+import pytest_asyncio
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
+
+from app.main import app
+from app.database.services import get_services_db, Base
+# from app.database.services import get_session_factory
+
+TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+SYNC_DATABASE_URL = TEST_DATABASE_URL.replace("+aiosqlite", "")  # sqlite:///./test.db
+
+# --- Async DB engine + session factory ---
+engine = create_async_engine(
+    TEST_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=NullPool,
+)
+
+AsyncTestingSessionLocal = sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
+
+# --- Override FastAPI dependency ---
+async def override_get_db():
+    """
+        Override FastAPI DB dependency to use the test session.
+    """
+    async with AsyncTestingSessionLocal() as session:
+        yield session
+
+app.dependency_overrides[get_services_db] = override_get_db
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def create_db_schema():
+    """
+    Create DB schema once for all tests.
+    """
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    yield engine
+
+
+@pytest_asyncio.fixture
+async def db_session() -> AsyncSession:
+    """
+    Creates a new session for each test.
+    """
+    async with AsyncTestingSessionLocal() as session:
+        yield session
 
 
 @pytest.fixture
 def sync_db_session():
-    """
-    Provides a regular (sync) SQLAlchemy session for sync-only tools like factory_boy.
-    """
-    session_local = get_session_factory()
-    session = session_local()
+    engine = create_engine(SYNC_DATABASE_URL, connect_args={"check_same_thread": False})
+    SessionLocal = sessionmaker(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    session = SessionLocal()
     try:
         yield session
     finally:
         session.close()
+
+# @pytest.fixture
+# def sync_db_session():
+#     """
+#     Provides a regular (sync) SQLAlchemy session for sync-only tools like factory_boy.
+#     """
+#     session_local = get_session_factory()
+#     session = session_local()
+#     try:
+#         yield session
+#     finally:
+#         session.close()
 
 
 @pytest.fixture(autouse=True)
@@ -30,7 +96,7 @@ def mock_env_vars(monkeypatch):
     Mock environmental variables for database and OAuth providers.
     """
     # Mock DB URI
-    monkeypatch.setenv("SERVICES_DB_URI", "sqlite:///./test.db")
+    # monkeypatch.setenv("SERVICES_DB_URI", "sqlite:///./test.db")
 
     # Mock Google OAuth
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "fake-google-client-id")
@@ -42,5 +108,5 @@ def mock_env_vars(monkeypatch):
     monkeypatch.setenv("MICROSOFT_CLIENT_SECRET", "fake-microsoft-client-secret")
     monkeypatch.setenv("MICROSOFT_REDIRECT_URI", "http://localhost/fake-microsoft-redirect")
 
-    # Reload config to apply changes
-    importlib.reload(app_config)
+    # # Reload config to apply changes
+    # importlib.reload(app_config)
