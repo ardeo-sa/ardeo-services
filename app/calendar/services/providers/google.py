@@ -55,7 +55,7 @@ async def push_to_google_calendar(token_data: dict, meeting: dict):
             logger.error(f"Failed to create event: {e.response.status_code} - {e.response.text}")
             raise
         except Exception as e:
-            logger.exception("Unexpected error while pushing to Google Calendar")
+            logger.exception("Unexpected error while pushing to Google Calendar %s", e)
             raise
 
 
@@ -107,5 +107,5 @@ async def fetch_google_events(token_data: dict, max_results: int = 10) -> list:
             logger.error(f"Failed to fetch events: {e.response.status_code} - {e.response.text}")
             raise
         except Exception as e:
-            logger.exception("Unexpected error while fetching Google Calendar events")
+            logger.exception("Unexpected error while fetching Google Calendar events %s", e)
             raise

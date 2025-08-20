@@ -9,7 +9,6 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database.session import async_session_maker
@@ -27,7 +26,7 @@ async def dispatch_unsent_notifications():
     Dispatch all queued (unsent) notifications using configured delivery methods.
     Includes retry fallback for email and WhatsApp.
     """
-    async with async_session_maker() as session:  # type: AsyncSession
+    async with async_session_maker() as session:
         stmt = select(Notification).where(Notification.sent_at.is_(None))
         result = await session.execute(stmt)
         notifications = result.scalars().all()
@@ -50,7 +49,7 @@ async def dispatch_unsent_notifications():
                         await send_email_notification(notif)
                         logger.info(f"Email sent for notification ID {notif.id} on attempt {attempt + 1}")
                         break
-                    except Exception as e:
+                    except Exception as e: # pylint: disable=broad-exception-caught
                         logger.warning(f"Email send failed for notification ID {notif.id} "
                                        f"on attempt {attempt + 1}: {e}")
                         await asyncio.sleep(2 ** attempt)
@@ -62,7 +61,7 @@ async def dispatch_unsent_notifications():
                         await send_whatsapp_message(notif)
                         logger.info(f"WhatsApp message sent for notification ID {notif.id} on attempt {attempt + 1}")
                         break
-                    except Exception as e:
+                    except Exception as e: # pylint: disable=broad-exception-caught
                         logger.warning(f"WhatsApp send failed for notification ID {notif.id} "
                                        f"on attempt {attempt + 1}: {e}")
                         await asyncio.sleep(2 ** attempt)
@@ -73,7 +72,7 @@ async def dispatch_unsent_notifications():
                 await session.commit()
                 logger.info(f"Notification ID {notif.id} marked as sent")
 
-            except Exception as e:
+            except Exception as e: # pylint: disable=broad-exception-caught
                 logger.error(f"Error dispatching notification ID {notif.id}: {e}", exc_info=True)
                 # Leave unsent so it gets retried later
                 continue
@@ -90,6 +89,6 @@ async def start_dispatch_loop(interval_seconds: int = 30):
     while True:
         try:
             await dispatch_unsent_notifications()
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-exception-caught
             logger.error(f"Error in dispatch loop: {e}", exc_info=True)
         await asyncio.sleep(interval_seconds)

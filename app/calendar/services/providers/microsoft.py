@@ -68,7 +68,7 @@ async def push_to_outlook_calendar(token_data: dict, meeting: dict):
             logger.error(f"Failed to create Outlook event: {e.response.status_code} - {e.response.text}")
             raise
         except Exception as e:
-            logger.exception("Unexpected error while pushing to Outlook Calendar")
+            logger.exception("Unexpected error while pushing to Outlook Calendar %s", e)
             raise
 
 
@@ -112,5 +112,5 @@ async def get_outlook_events(token_data: dict):
             logger.error(f"Failed to fetch Outlook events: {e.response.status_code} - {e.response.text}")
             raise
         except Exception as e:
-            logger.exception("Unexpected error while fetching Outlook events")
+            logger.exception("Unexpected error while fetching Outlook events %s", e)
             raise

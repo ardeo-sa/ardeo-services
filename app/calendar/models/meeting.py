@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 # from enum import Enum
 import uuid
 
-from sqlalchemy.dialects.postgresql import UUID
+# from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text, UniqueConstraint, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import Enum as SQLEnum
 
@@ -119,7 +119,7 @@ class MDTAssignment(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
 
     role = Column(String, nullable=True)  # Optional role (e.g. scribe, chair)
-    assigned_at = Column(DateTime(timezone=True), default=func.now())
+    assigned_at = Column(DateTime(timezone=True), default=func.now()) # pylint: disable=not-callable
     notified = Column(Boolean, default=False)  # For notification tracking
 
     meeting = relationship("Meeting", backref="mdt_assignments")
@@ -130,6 +130,7 @@ class MDTAssignment(Base):
 
 
 class MeetingFormLock(Base):
+    """Represents a MDT meeting lock."""
     __tablename__ = "meeting_form_locks"
 
     id = Column(Integer, primary_key=True)
@@ -139,4 +140,3 @@ class MeetingFormLock(Base):
     locked_by = Column(Integer, ForeignKey("users.id"))
 
     __table_args__ = (UniqueConstraint("meeting_id", "form_name", name="_meeting_form_uc"),)
-

@@ -4,23 +4,16 @@ Global test configuration and infrastructure fixtures.
 Responsibilities:
 - Register shared fixture modules (`tests/fixtures/`)
 - Configure async + sync test clients
-- Provide test database session overrides
 - Manage event loop lifecycle
-- Create/drop database schema for tests
 """
-
 import asyncio
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import AsyncClient, ASGITransport
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
-
 from app.main import app
-from app.database.services import get_services_db, Base
+from app.database.services import get_services_db
 
 pytest_plugins = [
     "tests.fixtures.db",
@@ -28,30 +21,6 @@ pytest_plugins = [
     "tests.fixtures.meetings",
     "tests.fixtures.notifications",
 ]
-
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
-
-engine = create_async_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=NullPool,
-)
-
-AsyncTestingSessionLocal = sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
-
-# Async override for get_db
-async def override_get_db():
-    """
-    Override FastAPI DB dependency to use the test session.
-    """
-    async with AsyncTestingSessionLocal() as session:
-        yield session
-
-app.dependency_overrides[get_services_db] = override_get_db
 
 
 @pytest.fixture(scope="session")
@@ -62,27 +31,6 @@ def event_loop():
     loop = asyncio.get_event_loop()
     yield loop
     loop.close()
-
-
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def create_db_schema():
-    """
-    Create DB schema once for all tests.
-    """
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-
-
-@pytest_asyncio.fixture
-async def db_session() -> AsyncSession:
-    """
-    Creates a new session for each test.
-    """
-    async with AsyncTestingSessionLocal() as session:
-        yield session
-
 
 @pytest.fixture
 def sync_client():

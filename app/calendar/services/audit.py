@@ -67,5 +67,5 @@ async def log_meeting_action(
         await db.commit()
         logger.info(f"Audit log committed for meeting {action_data.meeting_id}")
     except Exception as e:
-        logger.exception(f"Failed to commit audit log for meeting {action_data.meeting_id}")
+        logger.exception(f"Failed to commit audit log for meeting {action_data.meeting_id} {e}")
         raise

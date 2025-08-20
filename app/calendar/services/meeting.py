@@ -48,7 +48,7 @@ async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends
     if overlapping_meetings:
         raise HTTPException(
             status_code=400,
-            detail=f"One or more participants already have meetings scheduled during this time.",
+            detail="One or more participants already have meetings scheduled during this time.",
         )
 
     new_meeting = Meeting(

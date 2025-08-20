@@ -8,7 +8,7 @@ import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
-from app.config import get_services_db_uri
+from app.config import SYNC_SERVICES_DB_URI
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +30,12 @@ def get_services_engine() -> "sqlalchemy.engine.Engine":
        Returns:
            sqlalchemy.engine.Engine: SQLAlchemy engine instance connected to the services database.
        """
-    services_db_uri = get_services_db_uri()
-    if not services_db_uri:
+    if not SYNC_SERVICES_DB_URI:
         logger.error("[DB] SERVICES_DB_URI not set.")
         raise ValueError("SERVICES_DB_URI environment variable is not set.")
 
     logger.info("[DB] Creating new SQLAlchemy engine for services DB.")
-    return create_engine(services_db_uri, echo=True)
+    return create_engine(SYNC_SERVICES_DB_URI, echo=True)
 
 
 def get_services_engine_cached():
