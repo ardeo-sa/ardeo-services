@@ -31,13 +31,13 @@ import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from app.config import SERVICES_DB_URI
+from app.config import ASYNC_SERVICES_DB_URI
 
 logger = logging.getLogger(__name__)
 
 # Create async engine
 logger.info("[DB] Creating async SQLAlchemy engine for services DB.")
-engine = create_async_engine(SERVICES_DB_URI, echo=True)
+engine = create_async_engine(ASYNC_SERVICES_DB_URI, echo=True)
 
 # Create session factory
 async_session_maker = sessionmaker(

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file (useful for local dev)
 load_dotenv()
 
-def get_services_db_uri():
+def get_services_db_uri(async_mode: bool = True) -> str:
     """
         Returns the full DB URI from environment.
 
@@ -16,22 +16,34 @@ def get_services_db_uri():
         """
     full_uri = os.getenv("SERVICES_DB_URI")
     if full_uri:
+        # normalize driver based on mode
+        if async_mode and full_uri.startswith("postgresql+psycopg2"):
+            return full_uri.replace("psycopg2", "asyncpg")
+        if not async_mode and full_uri.startswith("postgresql+asyncpg"):
+            return full_uri.replace("asyncpg", "psycopg2")
         return full_uri
 
     # fallback to components
-    services_db_user = os.getenv("SERVICES_DB_USER")
-    services_db_password = os.getenv("SERVICES_DB_PASSWORD")
-    services_db_host = os.getenv("SERVICES_DB_HOST")
-    services_db_name = os.getenv("SERVICES_DB_NAME")
-    services_db_port = os.getenv("SERVICES_DB_PORT")
+    user = os.getenv("SERVICES_DB_USER")
+    password = os.getenv("SERVICES_DB_PASSWORD")
+    host = os.getenv("SERVICES_DB_HOST")
+    name = os.getenv("SERVICES_DB_NAME")
+    port = os.getenv("SERVICES_DB_PORT")
 
-    if not all([services_db_user, services_db_password, services_db_host, services_db_port, services_db_name]):
+    if not all([user, password, host, port, name]):
         raise ValueError("Missing one or more required DB environment variables")
 
-    return (
-        f"postgresql+psycopg2://{services_db_user}:{services_db_password}@{services_db_host}:"
-    f"{services_db_port}/{services_db_name}"
-    )
+    if async_mode:
+        return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
+    else:
+        return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
+
+try:
+    ASYNC_SERVICES_DB_URI = get_services_db_uri(async_mode=True)
+    SYNC_SERVICES_DB_URI = get_services_db_uri(async_mode=False)
+except ValueError as e:
+    ASYNC_SERVICES_DB_URI = None
+    SYNC_SERVICES_DB_URI = None
 
 # Google OAuth
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
