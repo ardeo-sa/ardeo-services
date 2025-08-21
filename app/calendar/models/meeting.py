@@ -30,11 +30,15 @@ class Meeting(Base):
     locked = Column(Boolean, default=False)
     external_event_id = Column(String, nullable=True, unique=True)
     external_provider = Column(String, nullable=True)  # "google" or "microsoft"
+    template_id = Column(Integer, ForeignKey("meeting_templates.id"), nullable=True)
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
 
     participants = relationship("MeetingParticipant", back_populates="meeting")
     notes = relationship("MeetingNote", back_populates="meeting")
     meeting_patients = relationship("MeetingPatient", back_populates="meeting", cascade="all, delete-orphan")
     patients = relationship("Patient", secondary="meeting_patients", viewonly=True, back_populates="meetings")
+    template = relationship("MeetingTemplate", back_populates="meetings", lazy="joined")
+    creator = relationship("User", back_populates="meetings_created")
 
 
 class MeetingParticipant(Base):

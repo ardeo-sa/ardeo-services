@@ -47,7 +47,7 @@ class MeetingTemplate(Base):
     virtual_meeting = Column(Boolean, default=False)
     team = Column(JSON, nullable=True)
 
-    meetings = relationship("Meeting", backref="template", lazy="dynamic")
+    meetings = relationship("Meeting", back_populates="template", lazy="dynamic")
 
     def __repr__(self) -> str:
         """
