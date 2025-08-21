@@ -10,7 +10,8 @@ from sqlalchemy.orm import relationship
 
 from app.database.services import Base
 from app.calendar.enums import TreatmentDecision
-
+from app.calendar.models.primary.summary import Summary
+from app.calendar.models.primary.af_object import AFObject
 
 class MeetingTemplate(Base):
     """
@@ -20,8 +21,8 @@ class MeetingTemplate(Base):
         speciality (str): The medical speciality of the template (e.g., Oncology).
         hospital (str): The hospital associated with the template.
         location (str): The meeting's location (optional).
-        summary_id (str): Foreign key reference to a summary record.
-        notes_form_afo_id (str): Foreign key reference to an AF object form.
+        summary_guid (str): Foreign key reference to a summary record by GUID
+        notes_form_afo_id (str): Foreign key reference to an AFObject form.
         treatment_decision (TreatmentDecision): Controlled vocabulary for treatment decisions.
         virtual_meeting (bool): Indicates if the meeting is virtual.
         team (JSON): JSON list of user-role mappings.
@@ -34,8 +35,12 @@ class MeetingTemplate(Base):
     hospital = Column(String, nullable=False)
     location = Column(String, nullable=True)
 
-    summary_id = Column(String, ForeignKey("summary.id"), nullable=True)
-    notes_form_afo_id = Column(String, ForeignKey("af_object.afo_id"), nullable=True)
+    summary_guid = Column(String, ForeignKey("summary.guid"), nullable=True)
+    summary = relationship("Summary", primaryjoin="MeetingTemplate.summary_guid == Summary.guid")
+
+    # Link to AFObject via primary key
+    notes_form_afo_id = Column(Integer, ForeignKey("af_object.afo_id"), nullable=True)
+    notes_form = relationship("AFObject", foreign_keys=[notes_form_afo_id])
 
     treatment_decision = Column(Enum(TreatmentDecision), nullable=True)
 

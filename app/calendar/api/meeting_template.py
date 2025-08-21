@@ -108,7 +108,7 @@ async def update_template(
     return await update_meeting_template(template_id, template_in, db)
 
 
-@router.delete("/{template_id}", response_model=dict, status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_template(
     template_id: int,
     db: AsyncSession = Depends(get_services_db),
