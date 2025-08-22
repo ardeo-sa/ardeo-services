@@ -17,3 +17,11 @@ class NotificationStatus(str, Enum):
     SNOOZED = "snoozed"
     DISMISSED = "dismissed"
 
+# app/notifications/models/enums.py or models.py
+import enum
+
+class NotificationPriority(str, enum.Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"

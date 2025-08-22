@@ -3,13 +3,17 @@ SQLAlchemy models for meeting data including meeting details,
 participants, notes, and patients discussed in MDT.
 """
 from datetime import datetime, timezone
-from enum import Enum
+# from enum import Enum
+import uuid
 
+# from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
+from sqlalchemy.types import Enum as SQLEnum
 
 from app.database.services import Base
+from app.calendar.enums import MeetingType, MeetingNoteType
 
 
 class Meeting(Base):
@@ -22,21 +26,19 @@ class Meeting(Base):
     title = Column(String, nullable=False)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
-    type = Column(String, nullable=False)  # "regular" or "mdt"
+    type = Column(SQLEnum(MeetingType), nullable=False)
     locked = Column(Boolean, default=False)
     external_event_id = Column(String, nullable=True, unique=True)
     external_provider = Column(String, nullable=True)  # "google" or "microsoft"
+    template_id = Column(Integer, ForeignKey("meeting_templates.id"), nullable=True)
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
 
     participants = relationship("MeetingParticipant", back_populates="meeting")
     notes = relationship("MeetingNote", back_populates="meeting")
     meeting_patients = relationship("MeetingPatient", back_populates="meeting", cascade="all, delete-orphan")
     patients = relationship("Patient", secondary="meeting_patients", viewonly=True, back_populates="meetings")
-
-
-class MeetingType(str, Enum):
-    """Possible meeting types"""
-    MDT = "mdt"
-    REVIEW = "review"
+    template = relationship("MeetingTemplate", back_populates="meetings", lazy="joined")
+    creator = relationship("User", back_populates="meetings_created")
 
 
 class MeetingParticipant(Base):
@@ -47,7 +49,8 @@ class MeetingParticipant(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.id"))
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(String, ForeignKey("users.id"))
+    # user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     meeting = relationship("Meeting", back_populates="participants")
     user = relationship("User", back_populates="meeting_links")
@@ -59,14 +62,20 @@ class MeetingNote(Base):
     """
     __tablename__ = "meeting_notes"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     meeting_id = Column(Integer, ForeignKey("meetings.id"))
-    type = Column(String)
-    content = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    author_id = Column(Integer, ForeignKey("users.id"))
+    type = Column(SQLEnum(MeetingNoteType), nullable=False)
+    # content = Column(Text)
+    content = Column(JSON, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(), # pylint: disable=not-callable
+        nullable=False)
+    author_id = Column(String, ForeignKey("users.id"))
     meeting = relationship("Meeting", back_populates="notes")
     author = relationship("User")
+    form_name = Column(String, nullable=True)
+    is_retracted = Column(Boolean, default=False)
 
 
 class MeetingPatient(Base):
@@ -100,3 +109,38 @@ class SupportingFile(Base):
     uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     meeting = relationship("Meeting", backref="supporting_files")
+
+
+class MDTAssignment(Base):
+    """
+    Tracks MDT-specific assignments for users,
+    used to trigger notifications and manage responsibilities.
+    """
+    __tablename__ = "mdt_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+
+    role = Column(String, nullable=True)  # Optional role (e.g. scribe, chair)
+    assigned_at = Column(DateTime(timezone=True), default=func.now()) # pylint: disable=not-callable
+    notified = Column(Boolean, default=False)  # For notification tracking
+
+    meeting = relationship("Meeting", backref="mdt_assignments")
+    user = relationship("User", backref="mdt_assignments")
+
+    def __repr__(self):
+        return f"<MDTAssignment(meeting_id={self.meeting_id}, user_id={self.user_id}, role={self.role})>"
+
+
+class MeetingFormLock(Base):
+    """Represents a MDT meeting lock."""
+    __tablename__ = "meeting_form_locks"
+
+    id = Column(Integer, primary_key=True)
+    meeting_id = Column(Integer, ForeignKey("meetings.id", ondelete="CASCADE"))
+    form_name = Column(String, nullable=False)
+    locked_at = Column(DateTime, default=datetime.utcnow)
+    locked_by = Column(Integer, ForeignKey("users.id"))
+
+    __table_args__ = (UniqueConstraint("meeting_id", "form_name", name="_meeting_form_uc"),)

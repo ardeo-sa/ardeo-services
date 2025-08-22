@@ -21,3 +21,11 @@ google-auth
 google-auth-oauthlib
 google-api-python-client
 aiosqlite
+
+celery
+redis
+
+twilio
+
+python-json-logger
+prometheus-fastapi-instrumentator

@@ -108,3 +108,37 @@ app = FastAPI(
     description="Backend for meeting scheduling, MDT workflow, and patient management."
 )
 ```
+
+## API Testing & Coverage
+We use pytest with modern async tools and realistic test data generation.
+
+### Tools
+pytest – main test runner
+pytest-asyncio – async test support
+httpx.AsyncClient – for testing FastAPI endpoints
+pytest-cov – coverage reporting
+factory_boy & Faker – for generating mock users, patients, etc.
+
+### Running Tests
+bash
+Copy
+Edit
+pytest --cov=app --cov-report=term-missing
+
+### Example Test
+```python
+async def test_create_meeting(async_client, override_coord):
+    payload = {
+        "title": "Weekly MDT",
+        "type": "mdt",
+        "scheduled_at": "2025-06-10T10:00:00Z"
+    }
+    response = await async_client.post("/api/meetings/", json=payload)
+    assert response.status_code == 200
+```
+
+### View HTML Coverage
+```bash
+pytest --cov=app --cov-report=html
+open htmlcov/index.html
+```

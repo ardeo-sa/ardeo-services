@@ -23,7 +23,7 @@ Notes:
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Text, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Text
 from sqlalchemy.orm import relationship
 
 from app.database.services import Base
@@ -44,5 +44,4 @@ class CalendarOAuthToken(Base):
     expiry = Column(DateTime, nullable=True)
     token_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    # user = relationship("User", back_populates="calendar_tokens")
-
+    user = relationship("User", back_populates="calendar_tokens") # pylint: disable=unused-variable

@@ -2,59 +2,136 @@
 Database setup and initialization for the services database using SQLAlchemy.
 """
 # pylint: disable=invalid-name
+# import os
+import logging
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
-from app.config import SERVICES_DB_URI
+from app.config import SYNC_SERVICES_DB_URI
+
+logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
+_services_engine = None
+_ServicesSessionLocal = None
 
-def get_services_engine():
+def get_services_engine() -> "sqlalchemy.engine.Engine":
     """
-    Creates and returns a SQLAlchemy engine for connecting to the services database.
+       Creates and returns a SQLAlchemy engine for connecting to the services database.
 
-    Raises:
-        ValueError: If the SERVICES_DB_URI is not defined.
+       This function uses `get_services_db_uri` to retrieve the database URI,
+       ensuring the URI is validated and dynamically fetched from environment variables.
+
+       Raises:
+           ValueError: If the SERVICES_DB_URI environment variable is not set or empty.
+
+       Returns:
+           sqlalchemy.engine.Engine: SQLAlchemy engine instance connected to the services database.
+       """
+    if not SYNC_SERVICES_DB_URI:
+        logger.error("[DB] SERVICES_DB_URI not set.")
+        raise ValueError("SERVICES_DB_URI environment variable is not set.")
+
+    logger.info("[DB] Creating new SQLAlchemy engine for services DB.")
+    return create_engine(SYNC_SERVICES_DB_URI, echo=True)
+
+
+def get_services_engine_cached():
+    """
+        Lazily initializes and returns the cached SQLAlchemy engine.
+
+        Raises:
+            ValueError: If the SERVICES_DB_URI environment variable is not set.
+
+        Returns:
+            Engine: Cached SQLAlchemy engine instance.
+        """
+    global _services_engine
+    if _services_engine is None:
+        logger.debug("[DB] Initializing cached services engine.")
+        _services_engine = get_services_engine()
+    else:
+        logger.debug("[DB] Using cached services engine.")
+    return _services_engine
+
+
+def get_session_factory():
+    """
+    Lazily initializes and returns the SQLAlchemy session factory.
 
     Returns:
-        sqlalchemy.engine.Engine: SQLAlchemy engine instance connected to the services database.
+        sessionmaker: A SQLAlchemy sessionmaker bound to the services engine.
     """
-    if not SERVICES_DB_URI:
-        raise ValueError("The SERVICES_DB_URI environment variable is not set or is empty.")
-    return create_engine(SERVICES_DB_URI, echo=True)
-
-services_engine = get_services_engine()
-ServicesSessionLocal =sessionmaker(autocommit=False, autoflush=False, bind=services_engine)
-
-def init_services_db():
-    """
-    Initializes the services database connection by creating the engine and session factory.
-
-    This function sets the global `services_engine` and `ServicesSessionLocal` variables.
-    Should be called before performing any database operations.
-
-    Raises:
-        ValueError: If the SERVICES_DB_URI is not defined or the engine could not be initialized.
-    """
-    global services_engine, ServicesSessionLocal  # pylint: disable=global-statement
-    if not services_engine:
-        services_engine = get_services_engine()
-        ServicesSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=services_engine)
+    global _ServicesSessionLocal
+    if _ServicesSessionLocal is None:
+        logger.debug("[DB] Creating session factory for services DB.")
+        _ServicesSessionLocal = sessionmaker(
+            autocommit=False,
+            autoflush=False,
+            bind=get_services_engine_cached()
+        )
+    else:
+        logger.debug("[DB] Using cached session factory.")
+    return _ServicesSessionLocal
 
 
 def get_services_db() -> Session:
     """
-    Provides a database session to be used in FastAPI route functions.
-
-    This will be used as a dependency to inject the session into FastAPI routes.
+    Dependency for FastAPI routes: provides a session to the services database.
 
     Yields:
-        Session: A database session instance.
+        Session: A SQLAlchemy session instance.
     """
-    db = ServicesSessionLocal()
+    db = get_session_factory()()
+    logger.debug("[DB] Session opened for services DB.")
     try:
         yield db
     finally:
         db.close()
+        logger.debug("[DB] Session closed for services DB.")
 
+
+def init_services_db():
+    """
+    Forces initialization of the services engine and session factory.
+
+    This should be used in production or scripts that need early database setup.
+    """
+    logger.info("[DB] Initializing services database connection.")
+    get_services_engine_cached()
+    get_session_factory()
+    logger.info("[DB] Services database initialization complete.")
+
+
+# def init_services_db():
+#     """
+#     Initializes the services database connection by creating the engine and session factory.
+#
+#     This function sets the global `services_engine` and `ServicesSessionLocal` variables.
+#     Should be called before performing any database operations.
+#
+#     Raises:
+#         ValueError: If the SERVICES_DB_URI is not defined or the engine could not be initialized.
+#     """
+#     global services_engine, ServicesSessionLocal  # pylint: disable=global-statement
+#     if not services_engine:
+#         services_engine = get_services_engine()
+#         ServicesSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=services_engine)
+#
+#
+# def get_services_db() -> Session:
+#     """
+#     Provides a database session to be used in FastAPI route functions.
+#
+#     This will be used as a dependency to inject the session into FastAPI routes.
+#
+#     Yields:
+#         Session: A database session instance.
+#     """
+#     db = ServicesSessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()

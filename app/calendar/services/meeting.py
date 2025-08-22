@@ -5,14 +5,14 @@ from typing import List, Optional
 from datetime import datetime
 
 from sqlalchemy import or_, and_, select
-from sqlalchemy.orm import Session, joinedload
+# from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from fastapi import Depends, HTTPException
 
 from app.calendar.models.meeting import Meeting, MeetingNote, MeetingParticipant, MeetingPatient
-from app.calendar.schemas.meeting import (MeetingCreate, MeetingNoteCreate, MeetingNoteType,
-                                          MeetingType, MeetingDetail, MeetingNoteResponse)
+from app.calendar.schemas.meeting import (MeetingCreate, MeetingNoteCreate,
+                                          MeetingType, MeetingDetail, MeetingNoteResponse, UserOut, PatientOut)
 from app.users.models.user import User
 from app.patients.models.patient import Patient
 from app.database.services import get_services_db
@@ -21,6 +21,7 @@ from app.database.services import get_services_db
 async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends(get_services_db)):
     """
     Create and persist a new meeting with participants and patients (if MDT).
+    Prevents scheduling overlapping meetings for the same participants.
 
     Args:
         meeting_data (MeetingCreate): Data for the new meeting.
@@ -29,6 +30,27 @@ async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends
     Returns:
         Meeting: The created meeting object with relationships.
     """
+    # --- Check for overlapping meetings ---
+    # (start1 < end2) AND (end1 > start2) → intervals overlap
+    overlap_stmt = (
+        select(Meeting)
+        .join(MeetingParticipant)
+        .where(
+            MeetingParticipant.user_id.in_(meeting_data.participants),
+            Meeting.start_time < meeting_data.end_time,
+            Meeting.end_time > meeting_data.start_time,
+        )
+    )
+
+    overlap_result = await db.execute(overlap_stmt)
+    overlapping_meetings = overlap_result.scalars().all()
+
+    if overlapping_meetings:
+        raise HTTPException(
+            status_code=400,
+            detail="One or more participants already have meetings scheduled during this time.",
+        )
+
     new_meeting = Meeting(
         title=meeting_data.title,
         start_time=meeting_data.start_time,
@@ -42,7 +64,7 @@ async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends
     for user_id in meeting_data.participants:
         db.add(MeetingParticipant(meeting_id=new_meeting.id, user_id=user_id))
 
-    if meeting_data.type == MeetingType.mdt and getattr(meeting_data, 'patient_ids', None):
+    if meeting_data.type == MeetingType.MDT and getattr(meeting_data, 'patient_ids', None):
         for pid in meeting_data.patient_ids:
             db.add(MeetingPatient(meeting_id=new_meeting.id, patient_id=pid))
 
@@ -95,7 +117,7 @@ async def get_meeting(meeting_id: int, db: AsyncSession, current_user: User) -> 
         type=meeting.type,
         start_time=meeting.start_time,
         end_time=meeting.end_time,
-        participants=[p.user_id for p in meeting.participants],
+        participants=[UserOut.model_validate(p.user) for p in meeting.participants],
         notes=[
             MeetingNoteResponse(
                 id=n.id,
@@ -107,6 +129,7 @@ async def get_meeting(meeting_id: int, db: AsyncSession, current_user: User) -> 
             )
             for n in meeting.notes
         ],
+        patients=[PatientOut.model_validate(p.patient) for p in meeting.meeting_patients],
         locked=meeting.locked
     )
 
@@ -136,7 +159,7 @@ async def add_patients_to_meeting(meeting_id: int, patient_ids: List[int], db: A
 
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
-    if meeting.type != MeetingType.mdt:
+    if meeting.type != MeetingType.MDT:
         raise HTTPException(status_code=400, detail="Patients can only be added to MDT meetings")
     if meeting.locked:
         raise HTTPException(status_code=403, detail="Meeting is locked. Cannot add patients.")
@@ -187,6 +210,7 @@ async def add_meeting_note(meeting_id: int, note_data: MeetingNoteCreate, user: 
         meeting_id=meeting.id,
         author_id=user.id,
         type=note_data.type,
+        form_name=note_data.form_name,
         content=note_data.content,
     )
     db.add(note)

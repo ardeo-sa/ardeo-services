@@ -10,6 +10,6 @@ class UserRole(str, Enum):
     - coordinator: Can create and manage MDT meetings.
     - admin: Full access to all system resources.
     """
-    user = "user"
-    coordinator = "coordinator"
-    admin = "admin"
+    USER = "user"
+    COORDINATOR = "coordinator"
+    ADMIN = "admin"
