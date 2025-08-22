@@ -7,10 +7,12 @@ Includes:
 - Meetings with multiple participants
 """
 # pylint: disable=redefined-outer-name
-
+from datetime import datetime, timezone, timedelta
 import pytest_asyncio
 
+from app.calendar.enums import MeetingType
 from app.calendar.models.meeting import Meeting
+
 from tests.fixtures.users import normal_user, coordinator_user # pylint: disable=unused-import
 
 
@@ -21,9 +23,12 @@ async def mock_meeting(db_session, coordinator_user):
     """
     session = db_session
     coord = coordinator_user
+    now = datetime.now(timezone.utc)
     meeting = Meeting(
         title="MDT Session",
-        type="mdt",
+        start_time=now,
+        end_time=now + timedelta(hours=1),
+        type=MeetingType.MDT,
         created_by=coord.id
     )
     session.add(meeting)

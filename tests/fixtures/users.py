@@ -3,7 +3,7 @@ User-related test fixtures.
 
 Includes:
 - User factory fixture
-- Normal and coordinator users
+- Normal, coordinator and admin users
 - FastAPI dependency overrides for get_current_user
 """
 # pylint: disable=redefined-outer-name
@@ -49,7 +49,7 @@ async def normal_user(db_session, user_factory): # pylint: disable=redefined-out
         await session.commit()
         await session.refresh(user)
     except Exception as e:
-        print(f"❌ Commit failed for coordinator_user: {e}")
+        print(f"Commit failed for coordinator_user: {e}")
         raise
     return user
 
@@ -73,7 +73,31 @@ async def coordinator_user(db_session, user_factory):
         await session.commit()
         await session.refresh(user)
     except Exception as e:
-        print(f"❌ Commit failed for coordinator_user: {e}")
+        print(f"Commit failed for coordinator_user: {e}")
+        raise
+    return user
+
+
+@pytest_asyncio.fixture
+async def admin_user(db_session, user_factory):
+    """
+    Create an admin user for testing.
+    """
+    session = db_session
+    user = user_factory(
+        email=f"admin_{uuid4().hex[:8]}@example.com",
+        role=UserRole.ADMIN,
+        first_name="Alice",
+        last_name="Admin"
+    )
+    user_factory._meta.sqlalchemy_session.expunge(user)  # pylint: disable=protected-access
+
+    session.add(user)
+    try:
+        await session.commit()
+        await session.refresh(user)
+    except Exception as e:
+        print(f"Commit failed for admin_user: {e}")
         raise
     return user
 
@@ -103,6 +127,17 @@ async def override_current_user_coord(coordinator_user): # pylint: disable=redef
     Override FastAPI user dependency with a coordinator user.
     """
     user = coordinator_user
+    app.dependency_overrides[get_current_user] = override_user(user)
+    yield
+    app.dependency_overrides[get_current_user] = get_current_user
+
+
+@pytest_asyncio.fixture
+async def override_current_user_admin(admin_user):  # pylint: disable=redefined-outer-name
+    """
+    Override FastAPI user dependency with an admin user.
+    """
+    user = admin_user
     app.dependency_overrides[get_current_user] = override_user(user)
     yield
     app.dependency_overrides[get_current_user] = get_current_user
