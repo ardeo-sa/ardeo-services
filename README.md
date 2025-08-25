@@ -62,19 +62,30 @@ This is a FastAPI-based backend service for Ardeo web application. It provides f
 
 ## Setup
 
-1. Install dependencies:
+1. Create & activate a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate   # On Linux/Mac
+venv\Scripts\activate      # On Windows
+```
+
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Run the FastAPI app:
+3. Configure environment variables
+Copy .env.example (if present) to .env and update values as needed (DB connection string, secrets, etc.).
+
+4. Initialize the database schema
+Run the setup script once to create all tables:
 ```bash
-uvicorn app.main:app --reload
+python setup_db.py
 ```
 
-3. Running Tests
+5. Run the FastAPI app:
 ```bash
-pytest tests/
+python run.py
 ```
 
 
