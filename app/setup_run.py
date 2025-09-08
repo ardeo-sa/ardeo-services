@@ -10,6 +10,8 @@ Usage:
 """
 # pylint: disable=unused-import
 import logging
+from dotenv import load_dotenv
+
 from app.database.services import Base, get_services_engine
 
 # Import all models to register them with Base.metadata
@@ -21,6 +23,8 @@ from app.messaging.models.messaging import Message, Conversation
 from app.calendar.models.oauth import CalendarOAuthToken
 
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 # Initialize the database engine
 services_engine = get_services_engine()
