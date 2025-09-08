@@ -24,8 +24,11 @@ aiosqlite
 
 celery
 redis
+flower
 
 twilio
 
 python-json-logger
 prometheus-fastapi-instrumentator
+
+alembic

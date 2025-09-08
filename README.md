@@ -60,8 +60,7 @@ This is a FastAPI-based backend service for Ardeo web application. It provides f
 - Background jobs (e.g. reminders) go in `calendar/tasks/`
 
 
-## Setup
-
+## Manual Setup (dev)
 1. Create & activate a virtual environment:
 ```bash
 python -m venv venv
@@ -77,17 +76,126 @@ pip install -r requirements.txt
 3. Configure environment variables
 Copy .env.example (if present) to .env and update values as needed (DB connection string, secrets, etc.).
 
-4. Initialize the database schema
-Run the setup script once to create all tables:
-```bash
-python setup_db.py
-```
+4. Ensure required services are running (e.g., Redis, PostgreSQL)
+Start Redis (use instructions above to enable it)
 
 5. Run the FastAPI app:
 ```bash
 python run.py
 ```
+6. Run background metrics aggregation
+```bash
+# Run celery
+celery -A app.tasks.worker worker --beat --loglevel=info
+```
 
+7. Monitor celery tasks
+```bash
+# Use flower dashboard to monitor 
+# http://localhost:5555
+celery -A app.tasks.worker flower --port=5555
+```
+
+### To run in prod as service
+```bash
+# 1. Create dedicated user
+sudo useradd -r -s /bin/false dash-runner
+
+2. copy config
+sudo cp ardeo-dash.service /etc/systemd/system/
+
+# 3. enable and start
+sudo systemctl daemon-reload
+sudo systemctl enable ardeo-dash.service
+sudo systemctl start ardeo-dash.service
+
+# 3. Check logs
+journalctl -u ardeo-dash.service -f 
+```
+
+### Docker
+```bash
+# Run all services
+docker compose up -d
+```
+
+## Optional setup steps
+### Install Redis server
+#### Manual Setup (Ubuntu/Debian)
+```bash
+# Update package list
+sudo apt update
+
+# Install Redis
+sudo apt install redis-server
+
+# Start Redis
+sudo systemctl start redis
+
+# (Optional) Enable Redis to start on boot
+sudo systemctl enable redis
+
+# Verify it's running
+redis-cli ping
+```
+#### Run docker
+```bash
+# Pull the latest lightweight Redis image and starts it on port 6379
+docker run -d \
+  --name redis \
+  -p 6379:6379 \
+  redis:7-alpine
+# Verify
+docker logs redis
+docker exec -it redis redis-cli ping
+```
+
+### Install PostgreSQL
+```bash
+# Install PostgreSQL
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+
+# Start PostgreSQL
+sudo systemctl start postgresql
+
+# To enable it at boot
+sudo systemctl enable postgresql
+
+# Verify
+sudo systemctl status postgresql
+
+# Connect to test
+sudo -u postgres psql
+# Run
+\conninfo
+# Quit
+\q
+```
+
+### Databse setup
+```bash
+# Run once to create database and users
+./utils/setup_services_db.sh
+```
+
+## Maintainance
+### Reporting database migrations
+```bash
+# Generate initial migration
+alembic revision --autogenerate -m "init reporting models"
+
+# Generate migrations when models change
+alembic revision --autogenerate -m "add new table xyz"
+
+# Apply migrations
+alembic upgrade head
+```
+
+### Troubleshooting
+* Connection Refused errors? Make sure Redis, Postgres, or other services your app depends on are running.
+* WireGuard traffic not routing correctly? Avoid using the same LAN subnet as the remote peer (e.g., 192.168.0.0/24).
+* Can't SSH to internal IPs via VPN? Ensure your local IP doesn't conflict and the server allows forwarding.
 
 ## API Documentation
 The FastAPI backend provides automatic, interactive API documentation using the OpenAPI standard. 
