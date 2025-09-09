@@ -55,3 +55,4 @@ async def async_client(db_session): # pylint: disable=redefined-outer-name
         base_url="http://test"
     ) as client:
         yield client
+

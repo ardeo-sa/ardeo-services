@@ -39,7 +39,8 @@ async def test_create_mdt_meeting(async_client: AsyncClient, coordinator_user):
             "start_time": "2025-01-01T10:00:00Z",
             "end_time": "2025-01-01T11:00:00Z",
             "participants": [coordinator_user.id],
-            "locked": False
+            "locked": False,
+            "created_by": coordinator_user.id,
         }
 
         response = await async_client.post("/api/calendar/meetings/", json=meeting_data)
@@ -69,7 +70,8 @@ async def test_create_mdt_meeting_requires_coordinator_role(async_client: AsyncC
         "start_time": "2025-01-01T10:00:00Z",
         "end_time": "2025-01-01T11:00:00Z",
         "participants": [normal_user.id],
-        "locked": False
+        "locked": False,
+        "created_by": normal_user.id,
     }
 
     # Assume user with role 'user' (not coordinator)
@@ -102,7 +104,8 @@ async def test_add_note_to_meeting(
             participants=[
                 MeetingParticipant(user=normal_user)
             ],
-            locked=False
+            locked=False,
+            created_by=normal_user.id
         )
         db_session.add(meeting)
         await db_session.commit()
@@ -151,7 +154,8 @@ async def test_edit_note_only_by_author(async_client: AsyncClient, normal_user,
         participants=[
             MeetingParticipant(user=normal_user)
         ],
-        locked=False
+        locked=False,
+        created_by=normal_user.id,
     )
     db_session.add(meeting)
     await db_session.commit()
@@ -194,7 +198,8 @@ async def test_lock_meeting_success(async_client: AsyncClient, coordinator_user,
             participants=[
                 MeetingParticipant(user=coordinator_user)
             ],
-            locked=False
+            locked=False,
+            created_by=coordinator_user.id
         )
         db_session.add(meeting)
         await db_session.commit()
@@ -229,7 +234,8 @@ async def test_lock_meeting_requires_proper_role(async_client: AsyncClient, norm
         participants=[
             MeetingParticipant(user=normal_user)
         ],
-        locked=False
+        locked=False,
+        created_by=normal_user.id
     )
     db_session.add(meeting)
     await db_session.commit()
@@ -261,7 +267,8 @@ async def test_add_patient_to_meeting_as_coordinator(async_client: AsyncClient, 
             participants=[
                 MeetingParticipant(user=coordinator_user)
             ],
-            locked=False
+            locked=False,
+            created_by=coordinator_user.id
         )
         db_session.add(meeting)
         await db_session.commit()
@@ -296,7 +303,8 @@ async def test_add_patient_to_meeting_requires_coordinator(
         participants=[
             MeetingParticipant(user=normal_user)
         ],
-        locked=False
+        locked=False,
+        created_by=normal_user.id
     )
     db_session.add(meeting)
     await db_session.commit()
@@ -328,7 +336,8 @@ async def test_upload_supporting_file(async_client: AsyncClient, coordinator_use
             participants=[
                 MeetingParticipant(user=coordinator_user)
             ],
-            locked=False
+            locked=False,
+            created_by=coordinator_user.id
         )
         db_session.add(meeting)
         await db_session.commit()
@@ -370,7 +379,8 @@ async def test_get_meeting_audit_log_as_admin(async_client: AsyncClient, coordin
             participants=[
                 MeetingParticipant(user=coordinator_user)
             ],
-            locked=False
+            locked=False,
+            created_by=coordinator_user.id,
         )
         db_session.add(meeting)
         await db_session.commit()
@@ -404,7 +414,8 @@ async def test_get_meeting_audit_log_requires_coordinator_or_admin(async_client:
         participants=[
             MeetingParticipant(user=normal_user)
         ],
-        locked=False
+        locked=False,
+        created_by=normal_user.id,
     )
     db_session.add(meeting)
     await db_session.commit()
@@ -427,7 +438,8 @@ async def test_post_meeting_action_success(async_client: AsyncClient, coordinato
             start_time=datetime.now(timezone.utc),
             end_time=datetime.now(timezone.utc) + timedelta(hours=1),
             participants=[MeetingParticipant(user=coordinator_user)],
-            locked=False
+            locked=False,
+            created_by=coordinator_user.id
         )
         db_session.add(meeting)
         await db_session.commit()
@@ -463,7 +475,8 @@ async def test_retract_note(async_client: AsyncClient, normal_user, db_session: 
             start_time=datetime.now(timezone.utc),
             end_time=datetime.now(timezone.utc) + timedelta(hours=1),
             participants=[MeetingParticipant(user=normal_user)],
-            locked=False
+            locked=False,
+            created_by=normal_user.id
         )
         db_session.add(meeting)
         await db_session.commit()
@@ -501,7 +514,8 @@ async def test_restore_note(async_client: AsyncClient, normal_user, db_session: 
             start_time=datetime.now(timezone.utc),
             end_time=datetime.now(timezone.utc) + timedelta(hours=1),
             participants=[MeetingParticipant(user=normal_user)],
-            locked=False
+            locked=False,
+            created_by=normal_user.id,
         )
         db_session.add(meeting)
         await db_session.commit()
@@ -549,7 +563,8 @@ async def test_locking_prevents_note_edit(async_client: AsyncClient, coordinator
             start_time=datetime.now(timezone.utc),
             end_time=datetime.now(timezone.utc) + timedelta(hours=1),
             participants=[MeetingParticipant(user=coordinator_user)],
-            locked=False
+            locked=False,
+            created_by=coordinator_user.id,
         )
         db_session.add(meeting)
         await db_session.commit()

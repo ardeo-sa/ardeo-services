@@ -15,12 +15,13 @@ from httpx import AsyncClient
 # from httpx._transports.asgi import ASGITransport
 
 
-from app.calendar.models.meeting import Meeting, MeetingParticipant
+from app.calendar.models.meeting import Meeting, MeetingParticipant, MeetingType
 from app.calendar.schemas.meeting import MeetingType
 # from app.users.models.user import User
 from app.core.dependencies import get_current_user
 from app.main import app
 # from app.database.services import get_services_db
+
 
 @pytest.mark.asyncio
 async def test_create_regular_meeting(async_client: AsyncClient, normal_user):
@@ -73,7 +74,8 @@ async def test_user_is_meeting_participant(normal_user,
         participants=[
             MeetingParticipant(user=normal_user)
         ],
-        locked=False
+        locked=False,
+        created_by=normal_user.id
     )
     db_session.add(meeting)
     await db_session.commit()
@@ -105,34 +107,37 @@ async def test_list_meetings(async_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_get_meeting_by_id(async_client: AsyncClient, normal_user,
-                                 db_session: AsyncSession):
+async def test_get_meeting_by_id(
+        async_client: AsyncClient,
+        mock_meeting,
+        coordinator_user,
+):
     """
     Test retrieving a meeting by its ID.
     """
     # Simulate authenticated user
-    app.dependency_overrides[get_current_user] = lambda: normal_user
+    app.dependency_overrides[get_current_user] = lambda: coordinator_user
 
-    normal_user = await db_session.merge(normal_user)
+    # normal_user = await db_session.merge(normal_user)
+    #
+    # # Prepare meeting and user fixture
+    # meeting = Meeting(
+    #     title="Test Meeting",
+    #     type=MeetingType.MDT.value,
+    #     start_time=datetime.now(timezone.utc),
+    #     end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+    #     participants=[
+    #         MeetingParticipant(user=normal_user)
+    #     ],
+    #     locked=False
+    # )
+    # db_session.add(meeting)
+    # await db_session.commit()
+    # await db_session.refresh(meeting)
 
-    # Prepare meeting and user fixture
-    meeting = Meeting(
-        title="Test Meeting",
-        type=MeetingType.MDT.value,
-        start_time=datetime.now(timezone.utc),
-        end_time=datetime.now(timezone.utc) + timedelta(hours=1),
-        participants=[
-            MeetingParticipant(user=normal_user)
-        ],
-        locked=False
-    )
-    db_session.add(meeting)
-    await db_session.commit()
-    await db_session.refresh(meeting)
-
-    response = await async_client.get(f"/api/calendar/meetings/{meeting.id}")
+    response = await async_client.get(f"/api/calendar/meetings/{mock_meeting.id}")
     assert response.status_code == 200
 
     meeting_data = response.json()
-    assert meeting_data["id"] == meeting.id
-    assert "title" in meeting_data
+    assert meeting_data["id"] == mock_meeting.id
+    assert meeting_data["title"] == "MDT Session"

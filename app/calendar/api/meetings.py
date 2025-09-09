@@ -67,7 +67,7 @@ async def create_meeting(
         logger.debug(f"Checking coordinator role for user {current_user.id} (required for MDT).")
         require_role("coordinator")(current_user)
 
-    created = await services.create_meeting(meeting, db)
+    created = await services.create_meeting(meeting, db, current_user)
     logger.info(f"Meeting created successfully with ID {created.id} by user {current_user.id}.")
     return created
 

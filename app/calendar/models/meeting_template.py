@@ -31,6 +31,7 @@ class MeetingTemplate(Base):
     __tablename__ = "meeting_templates"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    title = Column(String, nullable=True)
     speciality = Column(String, nullable=False)
     hospital = Column(String, nullable=False)
     location = Column(String, nullable=True)
@@ -46,8 +47,10 @@ class MeetingTemplate(Base):
 
     virtual_meeting = Column(Boolean, default=False)
     team = Column(JSON, nullable=True)
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
 
     meetings = relationship("Meeting", back_populates="template", lazy="dynamic")
+    creator = relationship("User", back_populates="templates_created")
 
     def __repr__(self) -> str:
         """

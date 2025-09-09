@@ -18,7 +18,11 @@ from app.patients.models.patient import Patient
 from app.database.services import get_services_db
 
 
-async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends(get_services_db)):
+async def create_meeting(
+        meeting_data: MeetingCreate,
+        db: AsyncSession,
+        current_user: User,
+):
     """
     Create and persist a new meeting with participants and patients (if MDT).
     Prevents scheduling overlapping meetings for the same participants.
@@ -41,7 +45,6 @@ async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends
             Meeting.end_time > meeting_data.start_time,
         )
     )
-
     overlap_result = await db.execute(overlap_stmt)
     overlapping_meetings = overlap_result.scalars().all()
 
@@ -57,6 +60,7 @@ async def create_meeting(meeting_data: MeetingCreate, db: AsyncSession = Depends
         end_time=meeting_data.end_time,
         type=meeting_data.type.value,
         locked=False,
+        created_by=current_user.id,
     )
     db.add(new_meeting)
     await db.flush()

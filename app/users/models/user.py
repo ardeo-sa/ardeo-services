@@ -58,3 +58,4 @@ class User(Base):
                                      uselist=False,
                                      cascade="all,delete-orphan")
     meetings_created = relationship("Meeting", back_populates="creator")
+    templates_created = relationship("MeetingTemplate", back_populates="creator")
