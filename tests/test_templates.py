@@ -63,7 +63,9 @@ async def test_create_meeting_template_by_coordinator(async_client: AsyncClient,
 
 @pytest.mark.asyncio
 async def test_create_mdt_meeting_from_template(
-    async_client: AsyncClient, override_current_user_coord
+        async_client: AsyncClient,
+        coordinator_user,
+        override_current_user_coord,
 ):
     """
     Create an MDT meeting using an existing meeting template.
@@ -75,7 +77,7 @@ async def test_create_mdt_meeting_from_template(
         "location": "Room 101",
         "speciality": "Oncology",
         "virtual_meeting": True,
-        "team": [{"user_id": str(override_current_user_coord.id), "role": "coordinator"}],
+        "team": [{"user_id": str(coordinator_user.id), "role": "coordinator"}],
     }
     template_resp = await async_client.post("/api/calendar/meeting-templates/", json=template_payload)
     assert template_resp.status_code == 201

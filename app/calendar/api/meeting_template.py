@@ -54,7 +54,7 @@ async def create_template(
     """
     _check_admin_or_coordinator(current_user)
 
-    logger.info(f"User {current_user.id} creating meeting template: {template_in.summary}")
+    logger.info(f"User {current_user.id} creating meeting template: {template_in.title}")
     return await create_meeting_template(template_in, db)
 
 
