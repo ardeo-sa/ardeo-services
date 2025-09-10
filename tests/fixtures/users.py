@@ -106,7 +106,7 @@ def override_user(user: User):
     """
     Returns a FastAPI override for get_current_user with the given user.
     """
-    def _override():
+    async def _override():
         return user
     return _override
 
@@ -122,9 +122,9 @@ async def override_current_user_normal(normal_user): # pylint: disable=redefined
 
 
 @pytest_asyncio.fixture
-async def override_current_user_coord(coordinator_user): # pylint: disable=redefined-outer-name
+async def override_current_user_coord(coordinator_user_user):  # pylint: disable=redefined-outer-name
     """
-    Override FastAPI user dependency with a coordinator user.
+    Override FastAPI user dependency with an admin user.
     """
     user = coordinator_user
     app.dependency_overrides[get_current_user] = override_user(user)
