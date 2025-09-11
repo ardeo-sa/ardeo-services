@@ -7,12 +7,12 @@ Includes:
 - Meetings with multiple participants
 """
 # pylint: disable=redefined-outer-name
-from datetime import datetime, timezone, timedelta
+# from datetime import datetime, timezone, timedelta
 import pytest_asyncio
 
 from app.calendar.models.meeting_template import MeetingTemplate
-from app.calendar.enums import MeetingType
-from app.calendar.models.meeting import Meeting, MeetingParticipant
+# from app.calendar.enums import MeetingType
+# from app.calendar.models.meeting import Meeting, MeetingParticipant
 
 from tests.fixtures.users import coordinator_user, admin_user  # pylint: disable=unused-import
 

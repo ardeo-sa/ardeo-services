@@ -15,7 +15,7 @@ from httpx import AsyncClient
 # from httpx._transports.asgi import ASGITransport
 
 
-from app.calendar.models.meeting import Meeting, MeetingParticipant, MeetingType
+from app.calendar.models.meeting import Meeting, MeetingParticipant
 from app.calendar.schemas.meeting import MeetingType
 # from app.users.models.user import User
 from app.core.dependencies import get_current_user

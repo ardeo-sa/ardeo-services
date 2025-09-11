@@ -57,4 +57,3 @@ async def shared_meeting(db_session, normal_user, coordinator_user):
     await db_session.commit()
     await db_session.refresh(meeting)
     return meeting
-

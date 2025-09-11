@@ -7,14 +7,17 @@ from httpx import AsyncClient
 
 from app.main import app
 from app.core.dependencies import get_current_user
-from app.calendar.enums import MeetingType
-from tests.fixtures.users import override_user
+# from app.calendar.enums import MeetingType
+# from tests.fixtures.users import override_user
 
 # from app.calendar.schemas.meeting import MeetingType
-from tests.fixtures.meeting_template import mock_meeting_template, shared_meeting_templates
+# from tests.fixtures.meeting_template import mock_meeting_template, shared_meeting_templates
 
 @pytest.mark.asyncio
-async def test_get_meetings(mock_meeting, override_current_user_coord, async_client: AsyncClient):
+async def test_get_meetings(
+        mock_meeting,
+        override_current_user_coord, # pylint: disable=unused-argument
+        async_client: AsyncClient):
     """
     Test fetching meetings for a coordinator user.
     """
@@ -27,7 +30,10 @@ async def test_get_meetings(mock_meeting, override_current_user_coord, async_cli
 
 
 @pytest.mark.asyncio
-async def test_shared_meeting_access(shared_meeting, normal_user, override_current_user_normal, async_client: AsyncClient):
+async def test_shared_meeting_access(
+        shared_meeting,
+        override_current_user_normal, # pylint: disable=unused-argument
+        async_client: AsyncClient):
     """
     Test that a normal user can access a shared meeting.
     """
