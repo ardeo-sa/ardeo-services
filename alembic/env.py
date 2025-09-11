@@ -1,9 +1,41 @@
+"""
+Alembic migration environment setup for the services database.
+
+This module configures the Alembic context for running database
+migrations in both offline and online modes. It loads environment
+variables from a dedicated `.env_migrations` file to construct
+the database connection URL for the administrative user.
+
+Key features:
+- Loads migration-specific environment variables for database connection.
+- Sets up logging based on the Alembic configuration file.
+- Provides `run_migrations_offline` and `run_migrations_online`
+  functions for executing migrations in the respective modes.
+- Integrates SQLAlchemy metadata (`Base.metadata`) for autogenerating
+  migration scripts.
+
+Offline mode:
+- Emits SQL statements to the migration output without
+  requiring a live database connection.
+
+Online mode:
+- Creates a SQLAlchemy Engine and establishes a connection
+  to execute migrations directly on the database.
+
+Environment variables used:
+- SERVICES_DB_ADMIN_USER: database user for migrations (default: "admin_user")
+- SERVICES_DB_ADMIN_PASSWORD: database password (default: "admin_password")
+- SERVICES_DB_HOST: database host (default: "192.168.0.218")
+- SERVICES_DB_PORT: database port (default: "5432")
+- SERVICES_DB_NAME: database name (default: "reporting")
+"""
+
 import os
 from logging.config import fileConfig
 from dotenv import load_dotenv
 
 from sqlalchemy import create_engine, pool
-from alembic import context
+from alembic import context # pylint: disable=E0611
 
 from app.database.services import Base
 
@@ -68,7 +100,7 @@ def run_migrations_online() -> None:
 
     """
     connectable = create_engine(
-        METRICS_DB_URI,
+        SERVICES_DB_URI,
         poolclass=pool.NullPool,
         future=True,
     )
