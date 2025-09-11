@@ -40,5 +40,6 @@ REDIS_URL=redis://redis:6379/0
 LOG_FILE=/app/app.log
 LOG_LEVEL=INFO
 
+# Celery
 CELERY_WORKER_LOG_FILE=/app/celery_worker.log
 CELERY_BEAT_LOG_FILE=/app/celery_beat.log
