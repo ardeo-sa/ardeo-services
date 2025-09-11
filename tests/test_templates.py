@@ -39,31 +39,38 @@ async def test_shared_meeting_access(shared_meeting, normal_user, override_curre
 
 
 @pytest.mark.asyncio
-async def test_create_meeting_template_by_coordinator(async_client: AsyncClient, override_current_user_coord):
+async def test_create_meeting_template_by_coordinator(async_client: AsyncClient, coordinator_user):
     """
     Coordinator user can create a meeting template via the API.
     """
-    payload = {
-        "title": "Weekly MDT template",
-        "hospital": "City Hospital",
-        "location": "Room 101",
-        "speciality": "Oncology",
-        "virtual_meeting": True,
-        "team": [{"user_id": str(override_current_user_coord.id), "role": "coordinator"}],
-        # "created_by": override_current_user_coord.id,
-    }
+    app.dependency_overrides[get_current_user] = lambda: coordinator_user
 
-    response = await async_client.post("/api/calendar/meeting-templates/", json=payload)
-    assert response.status_code == 201
+    try:
+        payload = {
+            "title": "Weekly MDT template",
+            "hospital": "City Hospital",
+            "location": "Room 101",
+            "speciality": "Oncology",
+            "virtual_meeting": True,
+            "team": [{"user_id": str(coordinator_user.id), "role": "coordinator"}],
+        }
 
-    data = response.json()
-    assert data["title"] == payload["title"]
-    assert data["hospital"] == payload["hospital"]
-    assert data["location"] == payload["location"]
-    assert data["speciality"] == payload["speciality"]
-    assert data["virtual_meeting"] == payload["virtual_meeting"]
-    # Team should be returned as list of dicts
-    assert all(member["user_id"] == str(override_current_user_coord.id) for member in data["team"])
+        response = await async_client.post("/api/calendar/meeting-templates/", json=payload)
+        assert response.status_code == 201
+
+        data = response.json()
+        assert data["title"] == payload["title"]
+        assert data["hospital"] == payload["hospital"]
+        assert data["location"] == payload["location"]
+        assert data["speciality"] == payload["speciality"]
+        assert data["virtual_meeting"] == payload["virtual_meeting"]
+
+        # Team should be returned as list of dicts
+        assert len(data["team"]) == 1
+        assert data["team"][0]["user_id"] == str(coordinator_user.id)
+        assert data["team"][0]["role"] == "coordinator"
+    finally:
+        app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio
@@ -106,8 +113,13 @@ async def test_create_mdt_meeting_from_template(
             "type": "mdt",
             "start_time": "2030-01-01T09:00:00Z",
             "end_time": "2030-01-01T10:00:00Z",
+            "participants": [coordinator_user.id],
+            "locked": False,
+            "created_by": coordinator_user.id,
         }
         meeting_resp = await async_client.post("/api/calendar/meetings/", json=meeting_payload)
+        print(meeting_resp.json())
+
         assert meeting_resp.status_code == 200
 
         meeting_data = meeting_resp.json()

@@ -122,7 +122,7 @@ async def override_current_user_normal(normal_user): # pylint: disable=redefined
 
 
 @pytest_asyncio.fixture
-async def override_current_user_coord(coordinator_user_user):  # pylint: disable=redefined-outer-name
+async def override_current_user_coord(coordinator_user):  # pylint: disable=redefined-outer-name
     """
     Override FastAPI user dependency with an admin user.
     """

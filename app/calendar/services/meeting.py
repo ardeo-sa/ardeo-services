@@ -13,6 +13,7 @@ from fastapi import Depends, HTTPException
 from app.calendar.models.meeting import Meeting, MeetingNote, MeetingParticipant, MeetingPatient
 from app.calendar.schemas.meeting import (MeetingCreate, MeetingNoteCreate,
                                           MeetingType, MeetingDetail, MeetingNoteResponse, UserOut, PatientOut)
+from app.calendar.models.meeting_template import MeetingTemplate
 from app.users.models.user import User
 from app.patients.models.patient import Patient
 from app.database.services import get_services_db
@@ -53,6 +54,12 @@ async def create_meeting(
             status_code=400,
             detail="One or more participants already have meetings scheduled during this time.",
         )
+
+    if meeting_data.template_id:
+        template = await db.get(MeetingTemplate, meeting_data.template_id)
+        if template:
+            if not meeting_data.title:
+                meeting_data.title = template.title
 
     new_meeting = Meeting(
         title=meeting_data.title,

@@ -16,7 +16,15 @@ class MeetingCreate(BaseModel):
     """
     Schema for creating a new meeting.
     """
-    title: str = Field(..., json_schema_extra={"example":"Weekly MDT"}, min_length=3)
+    title: Optional[str] = Field(
+        None,
+        json_schema_extra={"example": "Weekly MDT"},
+        min_length=3
+    )
+    template_id: Optional[int] = Field(
+        None,
+        json_schema_extra={"example": 1}
+    )
     type: MeetingType = Field(..., json_schema_extra={"example":"mdt"})
     start_time: datetime = Field(..., json_schema_extra={"example":"2024-06-15T10:00:00Z"})
     end_time: datetime = Field(..., json_schema_extra={"example":"2024-06-15T11:00:00Z"})
