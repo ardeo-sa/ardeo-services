@@ -36,14 +36,16 @@ class MeetingTemplateBase(BaseModel):
         virtual_meeting (bool): Indicates if the meeting is virtual.
         team (List[TeamMember]): List of MDT team members.
     """
+    title: Optional[str] = None
     speciality: str
     hospital: str
     location: Optional[str] = None
-    summary_id: Optional[str] = None
+    summary_guid: Optional[str] = None
     notes_form_afo_id: Optional[str] = None
     treatment_decision: Optional[TreatmentDecision] = None
     virtual_meeting: bool = False
     team: List[TeamMember] = Field(default_factory=list)
+    created_by: Optional[str] = None
 
 
 class MeetingTemplateCreate(MeetingTemplateBase):
