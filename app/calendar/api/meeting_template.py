@@ -54,8 +54,12 @@ async def create_template(
     """
     _check_admin_or_coordinator(current_user)
 
-    logger.info(f"User {current_user.id} creating meeting template: {template_in.summary}")
-    return await create_meeting_template(template_in, db)
+    logger.info(f"User {current_user.id} creating meeting template: {template_in.title}")
+    return await create_meeting_template(
+        template_in,
+        db,
+        current_user=current_user
+    )
 
 
 @router.get("/{template_id}", response_model=MeetingTemplateResponse)

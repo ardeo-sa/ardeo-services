@@ -9,6 +9,9 @@ Usage:
     Simply import this module to ensure all tables exist.
 """
 # pylint: disable=unused-import
+import logging
+from dotenv import load_dotenv
+
 from app.database.services import Base, get_services_engine
 
 # Import all models to register them with Base.metadata
@@ -19,10 +22,14 @@ from app.users.models.user import User
 from app.messaging.models.messaging import Message, Conversation
 from app.calendar.models.oauth import CalendarOAuthToken
 
+logger = logging.getLogger(__name__)
+
+load_dotenv()
+
 # Initialize the database engine
 services_engine = get_services_engine()
 
 # Create all tables registered in Base.metadata
 Base.metadata.create_all(services_engine)
 
-print("Database tables have been created (if they did not exist).")
+logger.info("Database tables have been created (if they did not exist).")

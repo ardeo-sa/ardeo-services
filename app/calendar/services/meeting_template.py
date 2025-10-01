@@ -46,14 +46,16 @@ async def create_meeting_template(
     _check_admin_or_coordinator(current_user)
 
     template = MeetingTemplate(
+        title=template_data.title or "Untitled",
         speciality=template_data.speciality,
         hospital=template_data.hospital,
         location=template_data.location,
-        summary_id=template_data.summary_id,
+        summary_guid=template_data.summary_guid,
         notes_form_afo_id=template_data.notes_form_afo_id,
         treatment_decision=template_data.treatment_decision,
         virtual_meeting=template_data.virtual_meeting,
         team=[member.model_dump() for member in template_data.team],
+        created_by=current_user.id,
     )
     db.add(template)
     await db.commit()
