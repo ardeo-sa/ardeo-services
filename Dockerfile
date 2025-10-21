@@ -24,5 +24,5 @@ ENV LOG_LEVEL=INFO
 EXPOSE 8000
 
 # Start FastAPI app using Uvicorn with log forwarding
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-config", "logging.ini"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
