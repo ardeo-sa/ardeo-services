@@ -1,0 +1,7 @@
+{"asctime": "2025-10-16 08:16:07,746", "levelname": "INFO", "name": "app.database.services", "message": "[DB] Creating new SQLAlchemy engine for services DB."}
+{"asctime": "2025-10-16 08:16:07,812", "levelname": "INFO", "name": "app.calendar.api.meetings", "message": "Listing meetings: skip=0, limit=10, search='None', start_date=None, end_date=None"}
+{"asctime": "2025-10-16 08:16:37,996", "levelname": "INFO", "name": "app.calendar.api.meetings", "message": "Listing meetings: skip=0, limit=10, search='None', start_date=None, end_date=None"}
+{"asctime": "2025-10-16 08:17:27,044", "levelname": "INFO", "name": "app.main", "message": "Health endpoint called"}
+{"asctime": "2025-10-21 05:58:21,068", "levelname": "INFO", "name": "app.calendar.api.meetings", "message": "Listing meetings: skip=0, limit=10, search='None', start_date=None, end_date=None"}
+{"asctime": "2025-10-21 07:07:08,922", "levelname": "INFO", "name": "app.calendar.api.meetings", "message": "Listing meetings: skip=0, limit=10, search='None', start_date=None, end_date=None"}
+{"asctime": "2025-10-21 07:07:51,258", "levelname": "INFO", "name": "app.calendar.api.meetings", "message": "Listing meetings: skip=0, limit=10, search='None', start_date=None, end_date=None"}
