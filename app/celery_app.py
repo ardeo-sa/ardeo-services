@@ -10,7 +10,7 @@ Key Features:
 - Sets UTC as the timezone.
 - Registers a periodic task (`run_system_notifications`) to run every 5 minutes.
 - Loads additional Celery configuration from `app.core.config`.
-- Automatically discovers task modules in `app.notifications.tasks`.
+- Automatically discovers task modules in `app.tasks`.
 
 Usage:
 Import `celery_app` in modules where you need to define or queue Celery tasks.
@@ -40,7 +40,7 @@ celery_app.conf.update(
 
 celery_app.conf.beat_schedule = {
     "run-every-5-min": {
-        "task": "app.notifications.tasks.celery_tasks.run_system_notifications",
+        "task": "app.tasks.celery_notification_tasks.run_system_notifications",
         "schedule": crontab(minute="*/5"),
     },
     "sync-calendars-every-30-min": {
@@ -52,4 +52,4 @@ celery_app.conf.beat_schedule = {
 celery_app.config_from_object("app.config", namespace="CELERY")
 
 # Autodiscover tasks in root
-celery_app.autodiscover_tasks(["app.tasks"])
+celery_app.autodiscover_tasks(["app"])

@@ -13,7 +13,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-
+from app.notifications.models import WatchedItem
 from app.users.schemas.user import UserRole
 from app.database.services import Base
 
@@ -53,9 +53,6 @@ class User(Base):
 
     meeting_links = relationship("MeetingParticipant", back_populates="user")
     watched_items = relationship("WatchedItem", back_populates="user", uselist=False, cascade="all, delete-orphan")
-    notification_pref = relationship("NotificationPreference",
-                                     back_populates="user",
-                                     uselist=False,
-                                     cascade="all,delete-orphan")
+    notification_pref = relationship("NotificationPreference", back_populates="user", uselist=False,  cascade="all,delete-orphan")
     meetings_created = relationship("Meeting", back_populates="creator")
     templates_created = relationship("MeetingTemplate", back_populates="creator")

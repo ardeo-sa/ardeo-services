@@ -55,3 +55,27 @@ async def async_client(db_session): # pylint: disable=redefined-outer-name
         base_url="http://test"
     ) as client:
         yield client
+
+
+def load_trigger_conditions_fixture():
+    """
+    Returns a list of trigger conditions for tests.
+    Each item represents a WatchedItem configuration.
+    """
+    return [
+        {
+            "user_id": 8,
+            "item_type": "meeting",
+            "item_id": 1,
+            "trigger_conditions": {
+                "conditions": [
+                    {
+                        "field": "scheduled_at",
+                        "operator": "within_hours",
+                        "value": 3
+                    }
+                ],
+                "logic": "AND"
+            }
+        }
+    ]

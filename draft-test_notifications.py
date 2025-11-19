@@ -15,6 +15,7 @@ from app.calendar.models.meeting import Meeting
 from tests.conftest import load_trigger_conditions_fixture
 
 
+
 @pytest.mark.asyncio
 async def test_create_notification(db_session):
     """
