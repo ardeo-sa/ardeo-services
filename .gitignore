@@ -1,0 +1,3 @@
+logs/app.log
+logs/celery_beat.log
+logs/celery_worker.log
