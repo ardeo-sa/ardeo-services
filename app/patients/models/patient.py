@@ -6,8 +6,9 @@ in one or more clinical meetings (e.g., MDTs). It includes identifying info,
 contact details, and a link to their primary clinician.
 """
 import enum
+import uuid
 
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, Enum as SQLEnum, DateTime, Boolean
+from sqlalchemy import UUID, Column, Integer, String, Date, ForeignKey, Enum as SQLEnum, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from app.database.services import Base
 
@@ -28,7 +29,7 @@ class Patient(Base):
     """
     __tablename__ = "patients"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     date_of_birth = Column(Date, nullable=True)
@@ -38,7 +39,7 @@ class Patient(Base):
     contact_info = Column(String, nullable=True)
     next_of_kin = Column(String, nullable=True)
 
-    primary_clinician_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    primary_clinician_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     primary_clinician = relationship("User", backref="patients")
 
     meeting_links = relationship(
