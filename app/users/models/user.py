@@ -11,9 +11,9 @@ import uuid
 
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
-
+from app.notifications.models import WatchedItem
 from app.users.schemas.user import UserRole
 from app.database.services import Base
 
@@ -31,9 +31,8 @@ class User(Base):
     """
     __tablename__ = "users"
 
-    # id = Column(Integer, primary_key=True, index=True)
-    # id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    # ensure DB UUID type and python uuid objects
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, index=True, nullable=False)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
@@ -53,9 +52,6 @@ class User(Base):
 
     meeting_links = relationship("MeetingParticipant", back_populates="user")
     watched_items = relationship("WatchedItem", back_populates="user", uselist=False, cascade="all, delete-orphan")
-    notification_pref = relationship("NotificationPreference",
-                                     back_populates="user",
-                                     uselist=False,
-                                     cascade="all,delete-orphan")
+    notification_pref = relationship("NotificationPreference", back_populates="user", uselist=False,  cascade="all,delete-orphan")
     meetings_created = relationship("Meeting", back_populates="creator")
     templates_created = relationship("MeetingTemplate", back_populates="creator")

@@ -8,7 +8,7 @@ import uuid
 
 # from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint, JSON
+from sqlalchemy import UUID, Column, Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import Enum as SQLEnum
 
@@ -31,7 +31,7 @@ class Meeting(Base):
     external_event_id = Column(String, nullable=True, unique=True)
     external_provider = Column(String, nullable=True)  # "google" or "microsoft"
     template_id = Column(Integer, ForeignKey("meeting_templates.id"), nullable=True)
-    created_by = Column(String, ForeignKey("users.id"), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     participants = relationship("MeetingParticipant", back_populates="meeting")
     notes = relationship("MeetingNote", back_populates="meeting")
